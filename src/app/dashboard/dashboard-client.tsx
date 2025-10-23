@@ -1,9 +1,10 @@
+
 'use client';
 
 import { DealerView } from '@/components/dashboard/dealer-view';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useUser } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,28 +43,50 @@ export default function DashboardClient({ role, name }: { role?: string; name?: 
   const router = useRouter();
   const { addPlayer, getPlayerByName } = useGame();
   const { user, isUserLoading } = useUser();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Validate params
-    if (!role || (role === 'player' && !name)) {
+    const currentRole = searchParams.get('role');
+    const currentName = searchParams.get('name');
+
+    if (isUserLoading) {
+      return; // Wait until user status is determined
+    }
+
+    // After a Google sign-in redirect, the user object will be available.
+    // We can then definitively set the role to 'dealer'.
+    if (user && !currentRole) {
+      router.replace('/dashboard?role=dealer');
+      return;
+    }
+
+    // If trying to access dealer route without being logged in, redirect to home
+    if (currentRole === 'dealer' && !user) {
       router.push('/');
       return;
     }
     
     // Handle player joining
-    if (role === 'player' && name) {
-      const playerExists = getPlayerByName(name);
+    if (currentRole === 'player' && currentName) {
+      const playerExists = getPlayerByName(currentName);
       if (!playerExists) {
-        addPlayer(name);
+        addPlayer(currentName);
       }
     }
-  }, [role, name, router, addPlayer, getPlayerByName]);
+    
+  }, [role, name, user, isUserLoading, router, addPlayer, getPlayerByName, searchParams]);
 
-  if (role === 'dealer') {
+  if (isUserLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  const currentRole = searchParams.get('role');
+  
+  if (currentRole === 'dealer' && user) {
     return <DealerView />;
   }
 
-  if (role === 'player' && name) {
+  if (currentRole === 'player' && name) {
     return <PlayerView playerName={name} />;
   }
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -16,7 +17,12 @@ export function RoleSelector() {
   const auth = useAuth();
 
   const handleDealerLogin = () => {
-    router.push(`/dashboard?role=dealer`);
+    // This will redirect the user to the Google sign-in page.
+    // After signing in, they will be redirected back to the app.
+    const provider = new GoogleAuthProvider();
+    if (auth) {
+      signInWithRedirect(auth, provider);
+    }
   };
 
   const handlePlayerLogin = (e: React.FormEvent) => {
@@ -56,9 +62,9 @@ export function RoleSelector() {
       </TabsContent>
       <TabsContent value="dealer" className="mt-4">
         <div className="space-y-4 text-center">
-            <p className="text-sm text-primary-foreground">Manage the game, add players, and track rebuys.</p>
+            <p className="text-sm text-primary-foreground">Sign in with Google to manage the game.</p>
             <Button onClick={handleDealerLogin} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                Manage Game
+                Sign in with Google
             </Button>
         </div>
       </TabsContent>

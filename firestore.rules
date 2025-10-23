@@ -1,0 +1,110 @@
+/**
+ * @fileOverview
+ * This ruleset enforces a strict user-ownership model for user profiles,
+ * and role-based access control (Dealer) for managing rebuys.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles. Each user can only access their own profile.
+ * - /players/{playerId}: Stores player information. No specific access controls are defined in this prototype.
+ * - /dealers/{dealerId}: Stores dealer information. No specific access controls are defined in this prototype.
+ * - /players/{playerId}/rebuys/{rebuyId}: Stores rebuy information. Dealers can create and delete rebuys.
+ *
+ * Key Security Decisions:
+ * - Users can only manage their own profiles. Listing all users is disallowed.
+ * - Rebuys are managed by Dealers, who must be authenticated.
+ * - The prototype prioritizes security and does not enforce strict schema validation.
+ *
+ * Denormalization for Authorization:
+ * - The Rebuy entity denormalizes the 'dealerId' to simplify authorization checks,
+ *   allowing direct validation of the dealer's identity without additional database reads.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Allows users to read and write their own profile data.
+     * @path /users/{userId}
+     * @allow (get, update, delete) if the user is authenticated and the userId matches the authenticated user's UID.
+     * @allow (create) if the user is authenticated and the userId matches the authenticated user's UID.
+     * @deny (get, update, delete) if the user is not authenticated or the userId does not match the authenticated user's UID.
+     * @deny (create) if the user is not authenticated or the userId does not match the authenticated user's UID.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Allows anyone to read player data, but restricts writes.
+     * @path /players/{playerId}
+     * @allow (get, list) to anyone.
+     * @deny (create, update, delete) to everyone, as no specific authorization is defined.
+     * @principle Open read access with restricted writes for future implementation.
+     */
+    match /players/{playerId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Allows anyone to read dealer data, but restricts writes.
+     * @path /dealers/{dealerId}
+     * @allow (get, list) to anyone.
+     * @deny (create, update, delete) to everyone, as no specific authorization is defined.
+     * @principle Open read access with restricted writes for future implementation.
+     */
+    match /dealers/{dealerId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Allows Dealers to manage Rebuy documents for a specific player.
+     * @path /players/{playerId}/rebuys/{rebuyId}
+     * @allow (get, list) to anyone.
+     * @allow (create) if the user is authenticated and has the 'Dealer' role. Additionally the dealerId must match the authenticated user id.
+     * @allow (update) if the user is authenticated and has the 'Dealer' role and is updating an existing document.
+     * @allow (delete) if the user is authenticated and has the 'Dealer' role and is deleting an existing document.
+     * @deny (create, update, delete) if the user is not authenticated or does not have the 'Dealer' role.
+     * @principle Role-based access control for managing rebuys, enforced through the 'Dealer' role and dealerId.
+     */
+    match /players/{playerId}/rebuys/{rebuyId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function isDealer() {
+          return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Dealer';
+      }
+      function isExistingDealer() {
+        return isDealer() && resource != null && resource.data.dealerId == request.auth.uid;
+      }
+
+      allow get: if true;
+      allow list: if true;
+      allow create: if isDealer() && request.resource.data.dealerId == request.auth.uid;
+      allow update: if isExistingDealer() && request.resource.data.dealerId == request.auth.uid;
+      allow delete: if isExistingDealer();
+    }
+  }
+}

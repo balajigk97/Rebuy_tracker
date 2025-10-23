@@ -19,6 +19,7 @@ export function PlayerView({ playerName }: PlayerViewProps) {
   }
   
   const totalBuyins = player.rebuys;
+  const endCount = player.blackCoins - player.rebuys;
   
   return (
     <div className="space-y-8">
@@ -29,9 +30,15 @@ export function PlayerView({ playerName }: PlayerViewProps) {
           <CardTitle>Your Status</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-between">
-          <div>
-            <p className="text-sm">Total Buy-ins</p>
-            <p className="text-5xl font-bold">{totalBuyins}</p>
+          <div className="flex gap-8">
+            <div>
+              <p className="text-sm">Total Buy-ins</p>
+              <p className="text-5xl font-bold">{totalBuyins}</p>
+            </div>
+            <div>
+              <p className="text-sm">End Count</p>
+              <p className="text-5xl font-bold">{endCount}</p>
+            </div>
           </div>
           <Button 
             onClick={() => addRebuy(player.id)} 

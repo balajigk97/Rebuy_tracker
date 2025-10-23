@@ -62,7 +62,7 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                         />
                       </TableCell>
                       <TableCell className="text-center text-lg font-bold">
-                        {player.rebuys - player.blackCoins}
+                        {player.blackCoins - player.rebuys}
                       </TableCell>
                     </>
                   )}

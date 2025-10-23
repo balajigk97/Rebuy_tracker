@@ -7,13 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, UserCog } from "lucide-react";
+import { useAuth } from "@/firebase";
+import { GoogleAuthProvider, signInWithRedirect } from "firebase/auth";
 
 export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
   const router = useRouter();
+  const auth = useAuth();
 
   const handleDealerLogin = () => {
-    router.push("/dashboard?role=dealer");
+    if (auth) {
+        const provider = new GoogleAuthProvider();
+        signInWithRedirect(auth, provider);
+    }
   };
 
   const handlePlayerLogin = (e: React.FormEvent) => {
@@ -55,7 +61,7 @@ export function RoleSelector() {
         <div className="space-y-4 text-center">
             <p className="text-sm text-primary-foreground">Manage the game, add players, and track rebuys.</p>
             <Button onClick={handleDealerLogin} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                Manage Game
+                Sign in with Google to Manage
             </Button>
         </div>
       </TabsContent>

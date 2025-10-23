@@ -4,11 +4,21 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut, User, UserCog } from "lucide-react";
+import { useAuth, useUser } from "@/firebase";
+import { signOut } from "firebase/auth";
 
 export function AppHeader() {
   const searchParams = useSearchParams();
   const role = searchParams.get("role");
   const name = searchParams.get("name");
+  const auth = useAuth();
+  const { user } = useUser();
+
+  const handleSignOut = () => {
+    if (auth) {
+      signOut(auth);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-10 w-full bg-background/80 backdrop-blur-sm border-b">
@@ -26,16 +36,23 @@ export function AppHeader() {
                 <User className="h-4 w-4" />
               )}
               <span>
-                {role === "dealer" ? "Dealer" : `Player: ${name}`}
+                {role === "dealer" ? `Dealer: ${user?.displayName || '...'}` : `Player: ${name}`}
               </span>
             </div>
           )}
-          <Button asChild variant="outline" size="sm">
-            <Link href="/">
-              <LogOut className="mr-2 h-4 w-4" />
-              Change Role
-            </Link>
-          </Button>
+          {role === 'dealer' ? (
+             <Button onClick={handleSignOut} variant="outline" size="sm">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+                <Link href="/">
+                <LogOut className="mr-2 h-4 w-4" />
+                Change Role
+                </Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DealerView } from '@/components/dashboard/dealer-view';
@@ -54,8 +53,8 @@ export default function DashboardClient({ role, name }: { role?: string; name?: 
     }
 
     // After a Google sign-in redirect, the user object will be available.
-    // We can then definitively set the role to 'dealer'.
-    if (user && !currentRole) {
+    // The role might not be in the URL yet.
+    if (user && currentRole !== 'dealer') {
       router.replace('/dashboard?role=dealer');
       return;
     }

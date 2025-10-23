@@ -1,0 +1,85 @@
+"use client";
+
+import { useGame } from "@/contexts/game-context";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { MinusCircle, PlusCircle, User } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface PlayerListProps {
+  isDealer?: boolean;
+  highlightPlayerName?: string;
+}
+
+export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerListProps) {
+  const { players, addRebuy, removeRebuy } = useGame();
+
+  return (
+    <div className="rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Player</TableHead>
+            <TableHead className="text-center">Buy-ins</TableHead>
+            {isDealer && <TableHead className="text-right">Actions</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {players.length > 0 ? (
+            players
+              .slice() // Create a shallow copy to sort
+              .sort((a, b) => b.rebuys - a.rebuys) // Sort by rebuys descending
+              .map((player) => (
+                <TableRow key={player.id} className={cn(player.name === highlightPlayerName && "bg-accent/50")}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                        {player.name === highlightPlayerName && <User className="h-4 w-4 text-primary" />}
+                        <span>{player.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center text-lg font-bold">
+                    {player.rebuys}
+                  </TableCell>
+                  {isDealer && (
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeRebuy(player.id)}
+                          aria-label={`Remove re-buy for ${player.name}`}
+                        >
+                          <MinusCircle className="h-5 w-5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => addRebuy(player.id)}
+                          aria-label={`Add re-buy for ${player.name}`}
+                        >
+                          <PlusCircle className="h-5 w-5 text-green-600" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={isDealer ? 3 : 2} className="h-24 text-center">
+                No players at the table yet.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}

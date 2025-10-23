@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "login-bg",
+      "description": "A blurry image of a poker table at night",
+      "imageUrl": "https://images.unsplash.com/photo-1504279807002-09854ccc9b6c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cG9rZXIlMjB0YWJsZXxlbnwwfHx8fDE3NjEyNDk5MDF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "poker table"
+    }
+  ]
 }

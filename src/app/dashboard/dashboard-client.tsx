@@ -50,11 +50,6 @@ export default function DashboardClient({ role, name }: { role?: string; name?: 
       return;
     }
     
-    if (role === 'dealer' && !isUserLoading && !user) {
-        router.push('/');
-        return;
-    }
-
     // Handle player joining
     if (role === 'player' && name) {
       const playerExists = getPlayerByName(name);
@@ -62,12 +57,9 @@ export default function DashboardClient({ role, name }: { role?: string; name?: 
         addPlayer(name);
       }
     }
-  }, [role, name, router, addPlayer, getPlayerByName, user, isUserLoading]);
+  }, [role, name, router, addPlayer, getPlayerByName]);
 
   if (role === 'dealer') {
-    if (isUserLoading) {
-        return <DashboardSkeleton />;
-    }
     return <DealerView />;
   }
 

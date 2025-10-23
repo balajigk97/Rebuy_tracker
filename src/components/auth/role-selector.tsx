@@ -16,10 +16,7 @@ export function RoleSelector() {
   const auth = useAuth();
 
   const handleDealerLogin = () => {
-    if (auth) {
-        const provider = new GoogleAuthProvider();
-        signInWithRedirect(auth, provider);
-    }
+    router.push(`/dashboard?role=dealer`);
   };
 
   const handlePlayerLogin = (e: React.FormEvent) => {
@@ -61,7 +58,7 @@ export function RoleSelector() {
         <div className="space-y-4 text-center">
             <p className="text-sm text-primary-foreground">Manage the game, add players, and track rebuys.</p>
             <Button onClick={handleDealerLogin} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                Sign in with Google to Manage
+                Manage Game
             </Button>
         </div>
       </TabsContent>

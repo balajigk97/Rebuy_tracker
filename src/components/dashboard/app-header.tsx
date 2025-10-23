@@ -36,23 +36,17 @@ export function AppHeader() {
                 <User className="h-4 w-4" />
               )}
               <span>
-                {role === "dealer" ? `Dealer: ${user?.displayName || '...'}` : `Player: ${name}`}
+                {role === "dealer" ? `Dealer` : `Player: ${name}`}
               </span>
             </div>
           )}
-          {role === 'dealer' ? (
-             <Button onClick={handleSignOut} variant="outline" size="sm">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-            </Button>
-          ) : (
+          
             <Button asChild variant="outline" size="sm">
                 <Link href="/">
                 <LogOut className="mr-2 h-4 w-4" />
-                Change Role
+                Exit
                 </Link>
             </Button>
-          )}
         </div>
       </div>
     </header>

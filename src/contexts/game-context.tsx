@@ -10,13 +10,14 @@ interface GameContextType {
   addRebuy: (playerId: string) => void;
   removeRebuy: (playerId: string) => void;
   getPlayerByName: (name: string) => Player | undefined;
+  updateBlackCoins: (playerId: string, count: number) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const initialPlayers: Player[] = [
-    { id: '1', name: 'Alice', rebuys: 1 },
-    { id: '2', name: 'Bob', rebuys: 2 },
+    { id: '1', name: 'Alice', rebuys: 1, blackCoins: 0 },
+    { id: '2', name: 'Bob', rebuys: 2, blackCoins: 0 },
 ];
 
 export function GameProvider({ children }: { children: ReactNode }) {
@@ -29,7 +30,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         if (existingPlayer) {
             return prevPlayers;
         }
-        const newPlayer: Player = { id: Date.now().toString(), name, rebuys: 1 };
+        const newPlayer: Player = { id: Date.now().toString(), name, rebuys: 1, blackCoins: 0 };
         toast({
             title: "Player Joined",
             description: `${name} has joined the table with 1 buy-in.`,
@@ -76,8 +77,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return players.find(p => p.name.toLowerCase() === name.toLowerCase());
   }
 
+  const updateBlackCoins = (playerId: string, count: number) => {
+    setPlayers(players.map(p => {
+      if (p.id === playerId) {
+        return { ...p, blackCoins: count >= 0 ? count : 0 };
+      }
+      return p;
+    }));
+  }
+
   return (
-    <GameContext.Provider value={{ players, addPlayer, addRebuy, removeRebuy, getPlayerByName }}>
+    <GameContext.Provider value={{ players, addPlayer, addRebuy, removeRebuy, getPlayerByName, updateBlackCoins }}>
       {children}
     </GameContext.Provider>
   );

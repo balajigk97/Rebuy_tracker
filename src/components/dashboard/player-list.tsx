@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MinusCircle, PlusCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "../ui/input";
 
 interface PlayerListProps {
   isDealer?: boolean;
@@ -19,7 +20,7 @@ interface PlayerListProps {
 }
 
 export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerListProps) {
-  const { players, addRebuy, removeRebuy } = useGame();
+  const { players, addRebuy, removeRebuy, updateBlackCoins } = useGame();
 
   return (
     <div className="rounded-lg border">
@@ -28,6 +29,8 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
           <TableRow>
             <TableHead>Player</TableHead>
             <TableHead className="text-center">Buy-ins</TableHead>
+            {isDealer && <TableHead className="text-center">#Black coins</TableHead>}
+            {isDealer && <TableHead className="text-center">End Count</TableHead>}
             {isDealer && <TableHead className="text-right">Actions</TableHead>}
           </TableRow>
         </TableHeader>
@@ -47,6 +50,22 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                   <TableCell className="text-center text-lg font-bold">
                     {player.rebuys}
                   </TableCell>
+                  {isDealer && (
+                    <>
+                      <TableCell className="text-center">
+                        <Input
+                          type="number"
+                          className="w-20 mx-auto"
+                          value={player.blackCoins}
+                          onChange={(e) => updateBlackCoins(player.id, parseInt(e.target.value, 10) || 0)}
+                          min={0}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center text-lg font-bold">
+                        {player.rebuys - player.blackCoins}
+                      </TableCell>
+                    </>
+                  )}
                   {isDealer && (
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -73,7 +92,7 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
               ))
           ) : (
             <TableRow>
-              <TableCell colSpan={isDealer ? 3 : 2} className="h-24 text-center">
+              <TableCell colSpan={isDealer ? 5 : 2} className="h-24 text-center">
                 No players at the table yet.
               </TableCell>
             </TableRow>

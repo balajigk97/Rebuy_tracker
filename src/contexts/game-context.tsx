@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { Player } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,7 +22,43 @@ const initialPlayers: Player[] = [
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>(initialPlayers);
+  const [lastAction, setLastAction] = useState<{type: string, payload: any} | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!lastAction) return;
+
+    switch (lastAction.type) {
+        case 'ADD_PLAYER':
+            toast({
+                title: "Player Joined",
+                description: `${lastAction.payload.name} has joined the table with 1 buy-in.`,
+            });
+            break;
+        case 'ADD_REBUY':
+            toast({
+                title: "Re-buy Added",
+                description: `${lastAction.payload.name} has re-bought.`,
+            });
+            break;
+        case 'REMOVE_REBUY_SUCCESS':
+            toast({
+                title: "Re-buy Removed",
+                description: `A re-buy was removed for ${lastAction.payload.name}.`,
+                variant: "destructive"
+            });
+            break;
+        case 'REMOVE_REBUY_FAILED':
+             toast({
+                title: "Action Not Allowed",
+                description: "Cannot remove the initial buy-in.",
+                variant: "destructive"
+            });
+            break;
+    }
+    setLastAction(null);
+  }, [lastAction, toast]);
+
 
   const addPlayer = (name: string) => {
     setPlayers(prevPlayers => {
@@ -31,10 +67,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             return prevPlayers;
         }
         const newPlayer: Player = { id: Date.now().toString(), name, rebuys: 1, blackCoins: 0 };
-        toast({
-            title: "Player Joined",
-            description: `${name} has joined the table with 1 buy-in.`,
-        });
+        setLastAction({ type: 'ADD_PLAYER', payload: { name } });
         return [...prevPlayers, newPlayer];
     });
   };
@@ -42,10 +75,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const addRebuy = (playerId: string) => {
     setPlayers(players.map(p => {
         if (p.id === playerId) {
-            toast({
-                title: "Re-buy Added",
-                description: `${p.name} has re-bought.`,
-            });
+            setLastAction({ type: 'ADD_REBUY', payload: { name: p.name } });
             return { ...p, rebuys: p.rebuys + 1 };
         }
         return p;
@@ -55,19 +85,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const removeRebuy = (playerId: string) => {
     setPlayers(players.map(p => {
         if (p.id === playerId && p.rebuys > 1) {
-            toast({
-                title: "Re-buy Removed",
-                description: `A re-buy was removed for ${p.name}.`,
-                variant: "destructive"
-            });
+            setLastAction({ type: 'REMOVE_REBUY_SUCCESS', payload: { name: p.name } });
             return { ...p, rebuys: p.rebuys - 1 };
         }
         if (p.id === playerId && p.rebuys <= 1) {
-             toast({
-                title: "Action Not Allowed",
-                description: "Cannot remove the initial buy-in.",
-                variant: "destructive"
-            });
+             setLastAction({ type: 'REMOVE_REBUY_FAILED', payload: {} });
         }
         return p;
     }));

@@ -12,7 +12,7 @@ export default function GameLayout({
       <Suspense>
         <AppHeader />
       </Suspense>
-      <main className="flex-1 container mx-auto py-8">
+      <main className="flex-1 container mx-auto py-8 flex flex-col">
         {children}
       </main>
     </div>

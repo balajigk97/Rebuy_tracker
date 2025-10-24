@@ -20,11 +20,13 @@ function PlayerPageContent() {
 
   if (!name) {
     return (
-      <div className="text-center py-10">
-        <h2 className="text-2xl font-semibold">Player Name Missing</h2>
-        <p className="text-muted-foreground mt-2">
-          Please join as a player from the home page.
-        </p>
+      <div className="flex-1 flex items-center justify-center text-center py-10">
+        <div>
+            <h2 className="text-2xl font-semibold">Player Name Missing</h2>
+            <p className="text-muted-foreground mt-2">
+            Please join as a player from the home page.
+            </p>
+        </div>
       </div>
     );
   }
@@ -32,11 +34,13 @@ function PlayerPageContent() {
   const player = getPlayerByName(name);
   if (!player) {
     return (
-      <div className="text-center py-10">
-          <h2 className="text-2xl font-semibold">Waiting for the dealer...</h2>
-          <p className="text-muted-foreground mt-2">
-            Once the dealer adds you to the game, your stats will appear here.
-          </p>
+      <div className="flex-1 flex items-center justify-center text-center py-10">
+        <div>
+            <h2 className="text-2xl font-semibold">Waiting for the dealer...</h2>
+            <p className="text-muted-foreground mt-2">
+                Once the dealer adds you to the game, your stats will appear here.
+            </p>
+        </div>
       </div>
     );
   }

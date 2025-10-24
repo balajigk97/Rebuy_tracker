@@ -5,10 +5,11 @@ import { DealerView } from '@/components/dashboard/dealer-view';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { GameProvider } from '@/contexts/game-context';
 
 const DEALER_PASSWORD = 'test1234';
 
-export default function DealerPage() {
+function DealerPageContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -62,4 +63,12 @@ export default function DealerPage() {
   }
 
   return <DealerView />;
+}
+
+export default function DealerPage() {
+    return (
+        <GameProvider>
+            <DealerPageContent />
+        </GameProvider>
+    )
 }

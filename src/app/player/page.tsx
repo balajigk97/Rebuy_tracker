@@ -4,7 +4,7 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PlayerView } from '@/components/dashboard/player-view';
-import { useGame } from '@/contexts/game-context';
+import { useGame, GameProvider } from '@/contexts/game-context';
 import { useEffect } from 'react';
 
 function PlayerPageContent() {
@@ -52,7 +52,9 @@ function PlayerPageContent() {
 export default function PlayerPage() {
   return (
     <Suspense>
-      <PlayerPageContent />
+      <GameProvider>
+        <PlayerPageContent />
+      </GameProvider>
     </Suspense>
   );
 }

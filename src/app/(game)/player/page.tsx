@@ -1,7 +1,6 @@
-
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
@@ -9,15 +8,7 @@ import { useGame } from '@/contexts/game-context';
 function PlayerPageContent() {
   const searchParams = useSearchParams();
   const name = searchParams.get('name');
-  const { addPlayer, getPlayerByName, isLoading } = useGame();
-
-  useEffect(() => {
-    // Only attempt to add a player if loading is complete, a name exists,
-    // and the player is not already in the game.
-    if (!isLoading && name && !getPlayerByName(name)) {
-      addPlayer(name);
-    }
-  }, [name, addPlayer, getPlayerByName, isLoading]);
+  const { getPlayerByName, isLoading } = useGame();
 
   if (isLoading) {
     return (
@@ -41,8 +32,11 @@ function PlayerPageContent() {
   const player = getPlayerByName(name);
   if (!player) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Joining game...</p>
+      <div className="text-center py-10">
+          <h2 className="text-2xl font-semibold">Waiting for the dealer...</h2>
+          <p className="text-muted-foreground mt-2">
+            Once the dealer adds you to the game, your stats will appear here.
+          </p>
       </div>
     );
   }

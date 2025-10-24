@@ -13,7 +13,6 @@ interface PlayerViewProps {
 }
 
 function SyncTest() {
-    const { lastUpdated } = useGame();
     // Since we're using Firestore, we don't have a simple 'lastUpdated' timestamp from localStorage.
     // We can show a generic sync status.
     return (

@@ -40,16 +40,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const setGameState = useCallback((newPlayers: Player[]) => {
     setPlayers(newPlayers);
     try {
-        // Only write to localStorage if in the browser
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ players: newPlayers }));
-        }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ players: newPlayers }));
+      }
     } catch (error) {
-      console.error("Failed to save state to localStorage", error);
+      console.error('Failed to save state to localStorage', error);
     }
   }, []);
-  
-  // Effect to load state from localStorage on initial mount
+
+  // Load from localStorage on mount
   useEffect(() => {
     try {
       const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -58,21 +57,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setPlayers(parsedState.players || []);
       }
     } catch (error) {
-      console.error("Failed to load state from localStorage", error);
+      console.error('Failed to load state from localStorage', error);
     }
     setIsLoading(false);
   }, []);
 
-  // Effect to listen for changes in other tabs
+  // Listen for changes in other tabs
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === LOCAL_STORAGE_KEY && event.newValue) {
         try {
           const newState = JSON.parse(event.newValue);
-          // Directly update the state from the storage event to re-render
           setPlayers(newState.players || []);
         } catch (error) {
-          console.error("Failed to parse state from storage event", error);
+            console.error("Failed to parse state from storage event", error);
         }
       }
     };
@@ -81,11 +79,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []); // Empty dependency array ensures this runs only once
+  }, []);
 
   const addPlayer = useCallback(
     (name: string) => {
-      const currentPlayers = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{"players":[]}')?.players || [];
+      const currentPlayers = players;
       if (currentPlayers.find((p: Player) => p.name.toLowerCase() === name.toLowerCase())) {
         toast({
           title: 'Player already exists',
@@ -106,12 +104,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         description: `${name} has joined the table with 1 buy-in.`,
       });
     },
-    [setGameState, toast]
+    [players, setGameState, toast]
   );
 
   const deletePlayer = useCallback(
     (playerId: string) => {
-        const currentPlayers = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{"players":[]}')?.players || [];
+        const currentPlayers = players;
         const player = currentPlayers.find((p: Player) => p.id === playerId);
       if(player) {
         setGameState(currentPlayers.filter((p: Player) => p.id !== playerId));
@@ -122,12 +120,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [setGameState, toast]
+    [players, setGameState, toast]
   );
 
   const addRebuy = useCallback(
     (playerId: string) => {
-        const currentPlayers = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{"players":[]}')?.players || [];
+        const currentPlayers = players;
         const player = currentPlayers.find((p: Player) => p.id === playerId);
       if(player) {
           const newPlayers = currentPlayers.map((p: Player) =>
@@ -140,12 +138,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
           });
       }
     },
-    [setGameState, toast]
+    [players, setGameState, toast]
   );
 
   const removeRebuy = useCallback(
     (playerId: string) => {
-        const currentPlayers = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{"players":[]}')?.players || [];
+        const currentPlayers = players;
         const player = currentPlayers.find((p: Player) => p.id === playerId);
         if (player) {
             if (player.rebuys <= 1) {
@@ -167,7 +165,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
               });
         }
     },
-    [setGameState, toast]
+    [players, setGameState, toast]
   );
 
   const getPlayerByName = useCallback(
@@ -178,13 +176,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const updateBlackCoins = useCallback((playerId: string, count: number) => {
-    const currentPlayers = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{"players":[]}')?.players || [];
+    const currentPlayers = players;
     const validCount = count >= 0 ? count : 0;
     const newPlayers = currentPlayers.map((p: Player) =>
         p.id === playerId ? { ...p, blackCoins: validCount } : p
     );
     setGameState(newPlayers);
-  }, [setGameState]);
+  }, [players, setGameState]);
 
   const value = useMemo(
     () => ({

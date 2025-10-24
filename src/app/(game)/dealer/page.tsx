@@ -9,25 +9,43 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 const DEALER_PASSWORD = 'test1234';
 
 export default function DealerPage() {
+  const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const sessionAuth = sessionStorage.getItem('dealerAuthenticated');
-    if (sessionAuth === 'true') setIsAuthenticated(true);
+    try {
+        const sessionAuth = sessionStorage.getItem('dealerAuthenticated');
+        if (sessionAuth === 'true') {
+            setIsAuthenticated(true);
+        }
+    } catch (e) {
+        console.error("Could not access sessionStorage.", e);
+    } finally {
+        setLoading(false);
+    }
   }, []);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === DEALER_PASSWORD) {
       setError('');
-      sessionStorage.setItem('dealerAuthenticated', 'true');
-      setIsAuthenticated(true);
+      try {
+        sessionStorage.setItem('dealerAuthenticated', 'true');
+        setIsAuthenticated(true);
+      } catch (e) {
+        console.error("Could not set item in sessionStorage.", e);
+        setError("Could not save session. Please try again.")
+      }
     } else {
       setError('Incorrect password. Please try again.');
     }
   };
+
+  if (loading) {
+    return null; // Render nothing on the server and during the initial client hydration check
+  }
 
   if (!isAuthenticated) {
     return (

@@ -1,5 +1,3 @@
-'use client';
-
 import type { Metadata } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
@@ -10,20 +8,15 @@ import { GameProvider } from '@/contexts/game-context';
 const fontBody = Inter({ subsets: ['latin'], variable: '--font-body' });
 const fontHeadline = Space_Grotesk({ subsets: ['latin'], variable: '--font-headline' });
 
-// Since the root layout is now a client component, we can't export metadata directly.
-// This is a known limitation when using context at the root.
-// For this app, we will set the title in the <head> directly.
-// export const metadata: Metadata = {
-//   title: 'Rebuy Tracker',
-//   description: 'Track poker re-buys with ease.',
-// };
+export const metadata: Metadata = {
+  title: 'Rebuy Tracker',
+  description: 'Track poker re-buys with ease.',
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>Rebuy Tracker</title>
-        <meta name="description" content="Track poker re-buys with ease." />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

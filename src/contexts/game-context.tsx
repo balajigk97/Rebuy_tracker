@@ -1,7 +1,7 @@
 'use client';
-import React, { createContext, useContext, useMemo, useCallback, ReactNode } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
+import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect } from 'react';
+import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
 import {
@@ -9,6 +9,9 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
+import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { useUser } from '@/firebase/auth/use-user';
+
 
 export interface GameContextType {
   players: Player[];
@@ -26,14 +29,22 @@ export const GameContext = createContext<GameContextType | undefined>(undefined)
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const firestore = useFirestore();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
-  const playersColRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'players');
-  }, [firestore]);
+  useEffect(() => {
+    if (auth && !user && !isUserLoading) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [auth, user, isUserLoading]);
 
-  const { data: players, isLoading } = useCollection<Omit<Player, 'id'>>(playersColRef);
+  const playersColRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'players');
+  }, [firestore, user]);
+
+  const { data: players, isLoading: isPlayersLoading } = useCollection<Omit<Player, 'id'>>(playersColRef);
 
   const getPlayerByName = useCallback(
     (name: string) => {
@@ -53,7 +64,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      const newPlayer: Omit<Player, 'id'> = {
+      const newPlayer: Omit<Player, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
         name,
         rebuys: 1,
         blackCoins: 0,
@@ -138,9 +149,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       players: players || [],
-      // lastUpdated is not directly available from Firestore snapshot, but can be derived if needed
       lastUpdated: null,
-      isLoading,
+      isLoading: isUserLoading || isPlayersLoading,
       addPlayer,
       deletePlayer,
       addRebuy,
@@ -150,7 +160,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }),
     [
       players,
-      isLoading,
+      isUserLoading,
+      isPlayersLoading,
       addPlayer,
       deletePlayer,
       addRebuy,

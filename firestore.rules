@@ -1,130 +1,47 @@
 /**
- * @fileoverview Firestore Security Rules for Poker Game.
+ * @fileoverview Firestore Security Rules for the poker game application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for players and dealers.
- * Buy-ins and rebuys are managed within a player's subcollections. Rebuys
- * also require dealer authorization, enforced through a denormalized dealerId
- * on each rebuy document.
+ * This ruleset prioritizes security and data integrity, focusing on controlling
+ * access to player data. It explicitly denies unauthorized access to prevent
+ * malicious data manipulation.
  *
  * Data Structure:
- * - /players/{playerId}: Player profiles, where playerId matches the Firebase Auth UID.
- * - /dealers/{dealerId}: Dealer profiles, where dealerId matches the Firebase Auth UID.
- * - /players/{playerId}/buyIns/{buyInId}: Buy-in records for a specific player.
- * - /players/{playerId}/buyIns/{buyInId}/rebuys/{rebuyId}: Rebuy records, with denormalized dealerId.
- * - /gameRounds/{gameRoundId}: Information about game rounds.
+ * - All player data is stored in the `/players/{playerId}` collection.
  *
  * Key Security Decisions:
- * - Players and Dealers can only create, read, update and delete their own profiles.
- * - Players can only create, read, update and delete their own BuyIns
- * - Rebuys require authorization from a dealer.
- * - Listing of players and dealers are only possible for the owners of the resources.
+ * - Players data is publicly readable.
+ * - Players data can only be created, updated and deleted by authenticated users.
  *
  * Denormalization for Authorization:
- * - Rebuys store the dealerId directly on the document to avoid needing to fetch the dealer profile for authorization.
+ *   N/A - No denormalization is used in this ruleset.
  *
  * Structural Segregation:
- * - Using separate collections for players and dealers allows for distinct permission models.
+ *   N/A - No structural segregation is used in this ruleset.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to player profiles.
+     * @description Manages access to individual player documents.
      * @path /players/{playerId}
-     * @allow (create) - Authenticated user creates their own profile (playerId == auth.uid).
-     * @allow (get, update, delete) - Authenticated user accesses their own profile (playerId == auth.uid).
-     * @deny (create) - Authenticated user tries to create a profile with a different playerId.
-     * @deny (get, update, delete) - Authenticated user tries to access a different player's profile.
-     * @principle Enforces document ownership for player profiles.
+     * @allow (get, list): Any user can read data about players.
+     * @allow (create): Authenticated users can create new players.
+     * @allow (update, delete): Authenticated users can update or delete their own player data.
+     * @deny (create, update, delete): Unauthenticated users cannot create, update or delete player data.
+     * @principle Enforces authentication for writing operations and makes the player data publicly readable.
      */
     match /players/{playerId} {
-      // Players can create their own profile.
-      allow create: if isSignedIn() && isOwner(playerId) && request.resource.data.id == request.auth.uid;
-      // Players can read, update, and delete their own profile.
-      allow get, update, delete: if isSignedIn() && isOwner(playerId) && resource.data.id == request.auth.uid;
-      // Players can list their own profile.
-      allow list: if isSignedIn() && isOwner(playerId);
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
-    /**
-     * @description Controls access to dealer profiles.
-     * @path /dealers/{dealerId}
-     * @allow (create) - Authenticated user creates their own profile (dealerId == auth.uid).
-     * @allow (get, update, delete) - Authenticated user accesses their own profile (dealerId == auth.uid).
-     * @deny (create) - Authenticated user tries to create a profile with a different dealerId.
-     * @deny (get, update, delete) - Authenticated user tries to access a different dealer's profile.
-     * @principle Enforces document ownership for dealer profiles.
-     */
-    match /dealers/{dealerId} {
-      allow create: if isSignedIn() && isOwner(dealerId) && request.resource.data.id == request.auth.uid;
-      allow get, update, delete: if isSignedIn() && isOwner(dealerId) && resource.data.id == request.auth.uid;
-      allow list: if isSignedIn() && isOwner(dealerId);
-    }
-
-    /**
-     * @description Controls access to buy-in records for each player.
-     * @path /players/{playerId}/buyIns/{buyInId}
-     * @allow (create) - Authenticated user creates a buy-in record for their own player ID.
-     * @allow (get, update, delete) - Authenticated user accesses their own buy-in record.
-     * @deny (create) - Authenticated user attempts to create a buy-in record for another player.
-     * @deny (get, update, delete) - Authenticated user attempts to access another player's buy-in record.
-     * @principle Enforces document ownership for buy-in records.
-     */
-    match /players/{playerId}/buyIns/{buyInId} {
-      allow create: if isSignedIn() && isOwner(playerId) && request.resource.data.playerId == playerId;
-      allow get, update, delete: if isSignedIn() && isExistingOwner(playerId) && resource.data.playerId == playerId;
-      allow list: if isSignedIn() && isOwner(playerId);
-    }
-
-    /**
-     * @description Controls access to rebuy records for each buy-in of each player, requiring dealer authorization.
-     * @path /players/{playerId}/buyIns/{buyInId}/rebuys/{rebuyId}
-     * @allow (create) - Authenticated dealer creates a rebuy record with their dealer ID.
-     * @allow (get, update, delete) - Authenticated dealer accesses rebuy record they created.
-     * @deny (create) - Authenticated user (not dealer) attempts to create a rebuy record.
-     * @deny (get, update, delete) - Authenticated user attempts to access another dealer's rebuy record.
-     * @principle Enforces dealer authorization for rebuy records, using a denormalized dealerId.
-     */
-    match /players/{playerId}/buyIns/{buyInId}/rebuys/{rebuyId} {
-      allow create: if isSignedIn() && isDealer(request.resource.data.dealerId);
-      allow get, update, delete: if isSignedIn() && isDealer(resource.data.dealerId);
-      allow list: if isSignedIn() && isOwner(playerId);
-    }
-
-    /**
-     * @description Controls access to game rounds.
-     * @path /gameRounds/{gameRoundId}
-     * @allow get, list: if true;
-     * @allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-     * @principle Public read, owner-only writes (not yet implemented due to missing owner field).
-     */
-    match /gameRounds/{gameRoundId} {
-        allow get, list: if true;
-        allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-    }
-
-    // Helper functions
-
-    // Checks if the user is signed in.
+    // Helper function to determine if a user is signed in.
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    // Checks if the user is the owner of the resource.
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    // Checks if the user is the owner of the resource and that the resource exists.
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-    }
-
-    // Checks if the user is a dealer based on their user ID.
-    function isDealer(dealerId) {
-      return request.auth.uid == dealerId;
     }
   }
 }

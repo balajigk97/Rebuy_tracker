@@ -1,5 +1,5 @@
-
 'use client';
+
 import { useState, useEffect } from 'react';
 import { DealerView } from '@/components/dashboard/dealer-view';
 import { Input } from '@/components/ui/input';
@@ -8,17 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 
 const DEALER_PASSWORD = 'test1234';
 
-function DealerPageContent() {
+export default function DealerPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Check session storage to persist authentication during the session
     const sessionAuth = sessionStorage.getItem('dealerAuthenticated');
-    if (sessionAuth === 'true') {
-      setIsAuthenticated(true);
-    }
+    if (sessionAuth === 'true') setIsAuthenticated(true);
   }, []);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -62,8 +59,4 @@ function DealerPageContent() {
   }
 
   return <DealerView />;
-}
-
-export default function DealerPage() {
-    return <DealerPageContent />;
 }

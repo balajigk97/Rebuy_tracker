@@ -159,7 +159,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      players: players || [],
+      // Perform a deep copy to ensure components receive a fresh array of new objects
+      players: players ? JSON.parse(JSON.stringify(players)) : [],
       isLoading: isPlayersLoading || !isClient,
       addPlayer,
       deletePlayer,

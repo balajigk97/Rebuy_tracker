@@ -1,90 +1,70 @@
 /**
  * @file Firestore Security Rules
- * @core_philosophy This ruleset enforces a user-ownership model for user profiles
- * and allows dealers (authenticated users) to manage player information. It prioritizes
- * security by default, restricting access where it is not explicitly granted.
- * @data_structure
- *   - /users/{userId}: Stores user profile information. Access is restricted to the
- *     authenticated user with a matching userId.
- *   - /players/{playerId}: Stores player information. Accessible by any authenticated dealer.
- * @key_security_decisions
- *   - User listing is disallowed to protect user privacy.
- *   - Player data is accessible by any authenticated dealer.
+ * @description This ruleset enforces a strict user-ownership model for user profiles
+ * and allows dealers (authenticated users) to manage player data.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores profile information for each user, accessible only by the user themselves.
+ * - /players/{playerId}: Stores player information, managed by authenticated dealers.
+ *
+ * Key Security Decisions:
+ * - Users can only access their own profile data.
+ * - Dealers (authenticated users) can create, update, and delete player data.
+ * - No user listing is allowed.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Enforces user-ownership for /users/{userId} documents.
      * @path /users/{userId}
-     * @allow (get) User 'user_abc' can read their own profile.
-     *   - request.auth.uid: 'user_abc'
-     *   - userId: 'user_abc'
-     * @allow (create) User 'user_abc' can create their own profile.
-     *   - request.auth.uid: 'user_abc'
-     *   - userId: 'user_abc'
-     * @allow (update) User 'user_abc' can update their own profile.
-     *   - request.auth.uid: 'user_abc'
-     *   - userId: 'user_abc'
-     * @allow (delete) User 'user_abc' can delete their own profile.
-     *   - request.auth.uid: 'user_abc'
-     *   - userId: 'user_abc'
-     * @deny (get) User 'user_xyz' cannot read user 'user_abc' profile.
-     *   - request.auth.uid: 'user_xyz'
-     *   - userId: 'user_abc'
-     * @deny (create) User 'user_xyz' cannot create user 'user_abc' profile.
-     *   - request.auth.uid: 'user_xyz'
-     *   - userId: 'user_abc'
-     * @deny (update) User 'user_xyz' cannot update user 'user_abc' profile.
-     *   - request.auth.uid: 'user_xyz'
-     *   - userId: 'user_abc'
-     * @deny (delete) User 'user_xyz' cannot delete user 'user_abc' profile.
-     *   - request.auth.uid: 'user_xyz'
-     *   - userId: 'user_abc'
-     * @principle Enforces user-ownership for profile data.
+     * @allow (get) User A (uid: 'user_a') can read their own profile.
+     * @allow (create) User A (uid: 'user_a') can create their profile if the userId matches their uid.
+     * @allow (update) User A (uid: 'user_a') can update their own profile.
+     * @allow (delete) User A (uid: 'user_a') can delete their own profile.
+     * @deny (get) User B (uid: 'user_b') cannot read User A's (uid: 'user_a') profile.
+     * @deny (create) User B (uid: 'user_b') cannot create User A's (uid: 'user_a') profile.
+     * @deny (update) User B (uid: 'user_b') cannot update User A's (uid: 'user_a') profile.
+     * @deny (delete) User B (uid: 'user_b') cannot delete User A's (uid: 'user_a') profile.
+     * @principle Enforces document ownership for all operations on user profiles.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if false; // Listing users is not permitted.
       allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && resource.data.uid == userId;
+      allow delete: if isOwner(userId) && resource.data.uid == userId;
     }
 
     /**
-     * @description Controls access to player documents.  Dealers can create, read, update, and delete player information.
+     * @description Allows authenticated dealers to manage player data.
      * @path /players/{playerId}
-     * @allow (get) Any authenticated user can read player data.
-     *   - request.auth.uid: 'any_user'
-     * @allow (list) Any authenticated user can list player data.
-     *   - request.auth.uid: 'any_user'
-     * @allow (create) Any authenticated user can create player data.
-     *   - request.auth.uid: 'any_user'
-     * @allow (update) Any authenticated user can update player data.
-     *   - request.auth.uid: 'any_user'
-     * @allow (delete) Any authenticated user can delete player data.
-     *   - request.auth.uid: 'any_user'
-     * @principle Allows dealers to manage player information.
+     * @allow (create) Dealer (uid: 'dealer_a') can create a new player profile.
+     * @allow (get) Dealer (uid: 'dealer_a') can read any player profile.
+     * @allow (list) Dealer (uid: 'dealer_a') can list player profiles.
+     * @allow (update) Dealer (uid: 'dealer_a') can update a player profile.
+     * @allow (delete) Dealer (uid: 'dealer_a') can delete a player profile.
+     * @deny (create) Non-authenticated user cannot create a new player profile.
+     * @deny (get) Non-authenticated user cannot read a player profile.
+     * @deny (list) Non-authenticated user cannot list player profiles.
+     * @deny (update) Non-authenticated user cannot update a player profile.
+     * @deny (delete) Non-authenticated user cannot delete a player profile.
+     * @principle Allows dealers to manage player data.
      */
     match /players/{playerId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && resource != null;
       allow delete: if isSignedIn() && resource != null;
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
     }
   }
 }

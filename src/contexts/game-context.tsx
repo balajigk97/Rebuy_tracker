@@ -35,7 +35,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 export function GameProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Start in loading state
   const { toast } = useToast();
 
   // Unified function to update state and localStorage
@@ -60,7 +60,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount, only on the client side
   useEffect(() => {
     setIsLoading(true);
     try {
@@ -75,6 +75,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setPlayers([]);
       setLastUpdated(null);
     }
+    // Finished loading, switch out of loading state
     setIsLoading(false);
   }, []);
 
@@ -84,8 +85,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (event.key === LOCAL_STORAGE_KEY && event.newValue) {
         try {
           const newState = JSON.parse(event.newValue);
-          const localState = localStorage.getItem(LOCAL_STORAGE_KEY);
-          if (localState && event.newValue !== localState) {
+          // Check if the data is actually different to avoid unnecessary re-renders
+          if (event.newValue !== JSON.stringify({ players, lastUpdated })) {
             if (newState && newState.players) {
               setPlayers(newState.players);
               setLastUpdated(newState.lastUpdated || null);
@@ -101,7 +102,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [players, lastUpdated]); // Dependency array to ensure the check uses latest state
 
   const addPlayer = useCallback(
     (name: string) => {

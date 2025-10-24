@@ -40,11 +40,6 @@ const initialState: GameState = {
 const gameReducer = (state: GameState, action: Action): GameState => {
   switch (action.type) {
     case 'SET_STATE':
-      // Ensure that we don't return the exact same object if players are the same
-      // This prevents unnecessary re-renders
-      if (JSON.stringify(state.players) === JSON.stringify(action.payload.players)) {
-        return { ...state, isLoading: action.payload.isLoading };
-      }
       return action.payload;
     case 'ADD_PLAYER':
       const newPlayer: Player = {

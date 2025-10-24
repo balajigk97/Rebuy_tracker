@@ -77,7 +77,7 @@ function RebuyTooltip({ timestamps }: { timestamps: Timestamp[] }) {
                 {sortedTimestamps.map((ts, index) => (
                   <li key={index} className="text-xs">
                     <span className="font-semibold">{index === 0 ? 'Buy-in:' : `Re-buy #${index}:`}</span>
-                    <span className="ml-2">{format(ts.toDate(), "h:mm a")}</span>
+                    <span className="ml-2">{format(ts.toDate(), "h:mm:ss a")}</span>
                   </li>
                 ))}
               </ul>

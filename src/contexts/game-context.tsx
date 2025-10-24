@@ -50,9 +50,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Failed to load state from localStorage', error);
-      setGameState({ players: [], lastUpdated: null });
+      setGameState({ players: [], lastUpdated: new Date().toISOString() });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   // Listen for storage changes from other tabs
@@ -60,7 +61,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === LOCAL_STORAGE_KEY && event.newValue) {
         try {
-          setGameState(JSON.parse(event.newValue));
+          const newState = JSON.parse(event.newValue);
+          setGameState(newState);
         } catch (error) {
           console.error("Failed to parse state from storage event", error);
         }
@@ -75,14 +77,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Unified function to update state and persist to localStorage
   const updateAndPersistState = useCallback((updater: (prevState: GameState) => GameState) => {
-    const newState = updater(gameState);
-    setGameState(newState);
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newState));
-    } catch (error) {
-      console.error('Failed to save state to localStorage', error);
-    }
-  }, [gameState]);
+    setGameState(prevState => {
+      const newState = updater(prevState);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newState));
+      } catch (error) {
+        console.error('Failed to save state to localStorage', error);
+      }
+      return newState;
+    });
+  }, []);
 
 
   const addPlayer = useCallback(

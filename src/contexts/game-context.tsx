@@ -14,6 +14,8 @@ import type { Player } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 
+const LOCAL_STORAGE_KEY = 'rebuy-tracker-game-state';
+
 // --- Reducer Actions ---
 type Action =
   | { type: 'ADD_PLAYER'; payload: { name: string } }
@@ -21,7 +23,7 @@ type Action =
   | { type: 'ADD_REBUY'; payload: { playerId: string } }
   | { type: 'REMOVE_REBUY'; payload: { playerId: string } }
   | { type: 'UPDATE_BLACK_COINS'; payload: { playerId: string; count: number } }
-  | { type: 'SET_LOADING'; payload: boolean };
+  | { type: 'SET_STATE'; payload: GameState };
 
 // --- State ---
 interface GameState {
@@ -37,6 +39,8 @@ const initialState: GameState = {
 // --- Reducer ---
 const gameReducer = (state: GameState, action: Action): GameState => {
   switch (action.type) {
+    case 'SET_STATE':
+      return action.payload;
     case 'ADD_PLAYER':
       const newPlayer: Player = {
         id: uuidv4(),
@@ -75,8 +79,6 @@ const gameReducer = (state: GameState, action: Action): GameState => {
             : p
         ),
       };
-    case 'SET_LOADING':
-      return { ...state, isLoading: action.payload };
     default:
       return state;
   }
@@ -102,13 +104,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate initial loading
-    dispatch({ type: 'SET_LOADING', payload: true });
-    const timer = setTimeout(() => {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }, 500);
-    return () => clearTimeout(timer);
+    try {
+      const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedState) {
+        const parsedState: GameState = JSON.parse(savedState);
+        dispatch({ type: 'SET_STATE', payload: { ...parsedState, isLoading: false } });
+      } else {
+        dispatch({ type: 'SET_STATE', payload: { ...initialState, isLoading: false } });
+      }
+    } catch (error) {
+      console.error("Failed to load state from localStorage", error);
+      dispatch({ type: 'SET_STATE', payload: { ...initialState, isLoading: false } });
+    }
   }, []);
+
+  useEffect(() => {
+    // We don't save isLoading state
+    const stateToSave = { players: state.players };
+    try {
+      if(!state.isLoading) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+      }
+    } catch (error) {
+      console.error("Failed to save state to localStorage", error);
+    }
+  }, [state.players, state.isLoading]);
 
   const addPlayer = useCallback(
     (name: string) => {

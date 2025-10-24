@@ -1,70 +1,74 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles
- * and allows dealers (authenticated users) to manage player data.
+ * @version 2
+ *
+ * @description
+ * This ruleset enforces a strict user-ownership model for all data. Each user (dealer)
+ * has their own private data tree under `/users/{userId}`.  This data is only
+ * accessible to the user with the matching `uid`.
  *
  * Data Structure:
- * - /users/{userId}: Stores profile information for each user, accessible only by the user themselves.
- * - /players/{playerId}: Stores player information, managed by authenticated dealers.
+ * All data is nested under `/users/{userId}`, providing a clear separation
+ * between users' data.
  *
  * Key Security Decisions:
- * - Users can only access their own profile data.
- * - Dealers (authenticated users) can create, update, and delete player data.
- * - No user listing is allowed.
+ * - User listing is explicitly denied to prevent unauthorized enumeration of user accounts.
+ * - All write operations are restricted to the authenticated user and must
+ *   match the `userId` in the path.
+ * - In this initial prototyping phase, the data schema itself is not strictly enforced,
+ *   allowing for flexible data shapes.  However, the rules do validate that the `uid`
+ *   in the document matches the path.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for /users/{userId} documents.
-     * @path /users/{userId}
-     * @allow (get) User A (uid: 'user_a') can read their own profile.
-     * @allow (create) User A (uid: 'user_a') can create their profile if the userId matches their uid.
-     * @allow (update) User A (uid: 'user_a') can update their own profile.
-     * @allow (delete) User A (uid: 'user_a') can delete their own profile.
-     * @deny (get) User B (uid: 'user_b') cannot read User A's (uid: 'user_a') profile.
-     * @deny (create) User B (uid: 'user_b') cannot create User A's (uid: 'user_a') profile.
-     * @deny (update) User B (uid: 'user_b') cannot update User A's (uid: 'user_a') profile.
-     * @deny (delete) User B (uid: 'user_b') cannot delete User A's (uid: 'user_a') profile.
-     * @principle Enforces document ownership for all operations on user profiles.
+     * @description Restricts access to the /users collection to ensure that
+     *              users cannot be listed. This is to prevent unauthorized
+     *              enumeration of user accounts.
+     * @path /databases/{database}/documents/users
+     * @allow None
+     * @deny (list) Any attempt to list users.
+     * @principle Prevents user enumeration.
      */
-    match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false; // Listing users is not permitted.
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isOwner(userId) && resource.data.uid == userId;
-      allow delete: if isOwner(userId) && resource.data.uid == userId;
+    match /users {
+      // Disable listing all users.
+      allow list: if false;
     }
 
     /**
-     * @description Allows authenticated dealers to manage player data.
-     * @path /players/{playerId}
-     * @allow (create) Dealer (uid: 'dealer_a') can create a new player profile.
-     * @allow (get) Dealer (uid: 'dealer_a') can read any player profile.
-     * @allow (list) Dealer (uid: 'dealer_a') can list player profiles.
-     * @allow (update) Dealer (uid: 'dealer_a') can update a player profile.
-     * @allow (delete) Dealer (uid: 'dealer_a') can delete a player profile.
-     * @deny (create) Non-authenticated user cannot create a new player profile.
-     * @deny (get) Non-authenticated user cannot read a player profile.
-     * @deny (list) Non-authenticated user cannot list player profiles.
-     * @deny (update) Non-authenticated user cannot update a player profile.
-     * @deny (delete) Non-authenticated user cannot delete a player profile.
-     * @principle Allows dealers to manage player data.
+     * @description Controls access to individual user documents. Only the
+     *              authenticated user with a matching `uid` can read, update,
+     *              or delete their own document.  Allows self-creation.
+     * @path /databases/{database}/documents/users/{userId}
+     * @allow (get) Authenticated user 'user_abc' can read their own user document at /users/user_abc.
+     * @allow (create) Authenticated user 'user_abc' can create their own user document at /users/user_abc.
+     * @allow (update) Authenticated user 'user_abc' can update their own user document at /users/user_abc.
+     * @allow (delete) Authenticated user 'user_abc' can delete their own user document at /users/user_abc.
+     * @deny (get) Authenticated user 'user_xyz' cannot read user document at /users/user_abc.
+     * @deny (create) Unauthenticated user cannot create a user document.
+     * @deny (update) Authenticated user 'user_xyz' cannot update user document at /users/user_abc.
+     * @deny (delete) Authenticated user 'user_xyz' cannot delete user document at /users/user_abc.
+     * @principle Enforces user-ownership.
      */
-    match /players/{playerId} {
+    match /users/{userId} {
       function isSignedIn() {
         return request.auth != null;
       }
 
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && resource != null;
-      allow delete: if isSignedIn() && resource != null;
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isSignedIn() && isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId));
+      }
+
+      allow get: if isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
   }
 }

@@ -5,12 +5,17 @@ import {
   createContext,
   useContext,
   ReactNode,
-  useState,
   useCallback,
   useMemo,
 } from 'react';
 import type { Player } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import {
+  addDocumentNonBlocking,
+  updateDocumentNonBlocking,
+} from '@/firebase/non-blocking-updates';
+import { collection, doc } from 'firebase/firestore';
 
 interface GameContextType {
   players: Player[];
@@ -24,10 +29,18 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
+const PLAYERS_COLLECTION = 'players';
+
 export function GameProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const firestore = useFirestore();
+
+  const playersColRef = useMemoFirebase(
+    () => collection(firestore, PLAYERS_COLLECTION),
+    [firestore]
+  );
+  
+  const { data: players = [], isLoading } = useCollection<Player>(playersColRef);
 
   const addPlayer = useCallback(
     (name: string) => {
@@ -43,65 +56,62 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const newPlayer: Player = {
-        id: new Date().toISOString(), // Use a temporary unique ID
+      const newPlayer: Omit<Player, 'id'> = {
         name,
         rebuys: 1,
         blackCoins: 0,
       };
 
-      setPlayers((prevPlayers) => [...prevPlayers, newPlayer]);
+      addDocumentNonBlocking(playersColRef, newPlayer);
 
       toast({
         title: 'Player Joined',
         description: `${name} has joined the table with 1 buy-in.`,
       });
     },
-    [players, toast]
+    [players, playersColRef, toast]
   );
 
   const addRebuy = useCallback(
     (playerId: string) => {
-      setPlayers((prevPlayers) =>
-        prevPlayers.map((p) => {
-          if (p.id === playerId) {
-            toast({
-              title: 'Re-buy Added',
-              description: `${p.name} has re-bought.`,
-            });
-            return { ...p, rebuys: p.rebuys + 1 };
-          }
-          return p;
-        })
-      );
+      const player = players.find((p) => p.id === playerId);
+      if (!player) return;
+
+      const playerDocRef = doc(firestore, PLAYERS_COLLECTION, playerId);
+      updateDocumentNonBlocking(playerDocRef, { rebuys: player.rebuys + 1 });
+      
+      toast({
+        title: 'Re-buy Added',
+        description: `${player.name} has re-bought.`,
+      });
     },
-    [toast]
+    [firestore, players, toast]
   );
 
   const removeRebuy = useCallback(
     (playerId: string) => {
-      setPlayers((prevPlayers) =>
-        prevPlayers.map((p) => {
-          if (p.id === playerId && p.rebuys > 1) {
-            toast({
-              title: 'Re-buy Removed',
-              description: `A re-buy was removed for ${p.name}.`,
-              variant: 'destructive',
-            });
-            return { ...p, rebuys: p.rebuys - 1 };
-          }
-          if (p.id === playerId && p.rebuys <= 1) {
-            toast({
-              title: 'Action Not Allowed',
-              description: 'Cannot remove the initial buy-in.',
-              variant: 'destructive',
-            });
-          }
-          return p;
-        })
-      );
+      const player = players.find((p) => p.id === playerId);
+      if (!player) return;
+      
+      if (player.rebuys <= 1) {
+        toast({
+          title: 'Action Not Allowed',
+          description: 'Cannot remove the initial buy-in.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      const playerDocRef = doc(firestore, PLAYERS_COLLECTION, playerId);
+      updateDocumentNonBlocking(playerDocRef, { rebuys: player.rebuys - 1 });
+
+      toast({
+        title: 'Re-buy Removed',
+        description: `A re-buy was removed for ${player.name}.`,
+        variant: 'destructive',
+      });
     },
-    [toast]
+    [firestore, players, toast]
   );
 
   const getPlayerByName = useCallback(
@@ -113,12 +123,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const updateBlackCoins = useCallback((playerId: string, count: number) => {
     const validCount = count >= 0 ? count : 0;
-    setPlayers((prevPlayers) =>
-      prevPlayers.map((p) =>
-        p.id === playerId ? { ...p, blackCoins: validCount } : p
-      )
-    );
-  }, []);
+    const playerDocRef = doc(firestore, PLAYERS_COLLECTION, playerId);
+    updateDocumentNonBlocking(playerDocRef, { blackCoins: validCount });
+  }, [firestore]);
 
   const value = useMemo(
     () => ({

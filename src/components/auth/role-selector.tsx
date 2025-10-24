@@ -8,13 +8,36 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, UserCog } from "lucide-react";
+import { useAuth } from "@/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useToast } from "@/hooks/use-toast";
 
 export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
+  const [dealerEmail, setDealerEmail] = useState("");
+  const [dealerPassword, setDealerPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const auth = useAuth();
+  const { toast } = useToast();
 
-  const handleDealerLogin = () => {
-    router.push('/dashboard?role=dealer');
+  const handleDealerLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dealerEmail || !dealerPassword) return;
+    setIsLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, dealerEmail, dealerPassword);
+      router.push('/dashboard?role=dealer');
+    } catch (error: any) {
+      console.error("Dealer login failed", error);
+      toast({
+        title: "Login Failed",
+        description: "Invalid email or password. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePlayerLogin = (e: React.FormEvent) => {
@@ -53,12 +76,35 @@ export function RoleSelector() {
         </form>
       </TabsContent>
       <TabsContent value="dealer" className="mt-4">
-        <div className="space-y-4 text-center">
-            <p className="text-sm text-primary-foreground">Proceed to the dashboard to manage the game.</p>
-            <Button onClick={handleDealerLogin} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                Manage Game
+        <form onSubmit={handleDealerLogin} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="email" className="text-primary-foreground">Email</Label>
+                <Input
+                id="email"
+                type="email"
+                placeholder="dealer@example.com"
+                value={dealerEmail}
+                onChange={(e) => setDealerEmail(e.target.value)}
+                required
+                className="bg-background/80 text-foreground"
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="password" className="text-primary-foreground">Password</Label>
+                <Input
+                id="password"
+                type="password"
+                placeholder="********"
+                value={dealerPassword}
+                onChange={(e) => setDealerPassword(e.target.value)}
+                required
+                className="bg-background/80 text-foreground"
+                />
+            </div>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || !dealerEmail || !dealerPassword}>
+                {isLoading ? 'Signing In...' : 'Sign In as Dealer'}
             </Button>
-        </div>
+        </form>
       </TabsContent>
     </Tabs>
   );

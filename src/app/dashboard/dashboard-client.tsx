@@ -4,6 +4,7 @@
 import { DealerView } from '@/components/dashboard/dealer-view';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
+import { useUser } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,13 +41,21 @@ function DashboardSkeleton() {
 
 export default function DashboardClient({ role, name }: { role?: string; name?: string }) {
   const searchParams = useSearchParams();
-  const { addPlayer, getPlayerByName, isLoading } = useGame();
+  const router = useRouter();
+  const { addPlayer, getPlayerByName, isLoading: isGameLoading } = useGame();
+  const { user, isUserLoading } = useUser();
   
   const currentRole = searchParams.get('role');
+  const isLoading = isGameLoading || isUserLoading;
 
   useEffect(() => {
-    if (isLoading || !currentRole) {
-      return; // Wait until loading is done and we know the role
+    // If loading, wait.
+    if (isLoading) return;
+
+    // If the role is dealer, but there's no authenticated user, redirect to login.
+    if (currentRole === 'dealer' && !user) {
+      router.replace('/');
+      return;
     }
 
     // Handle Player joining
@@ -57,13 +66,14 @@ export default function DashboardClient({ role, name }: { role?: string; name?: 
       }
     }
 
-  }, [isLoading, currentRole, addPlayer, getPlayerByName, searchParams]);
+  }, [isLoading, currentRole, user, router, addPlayer, getPlayerByName, searchParams]);
   
-  if (isLoading && !currentRole) {
+  if (isLoading) {
     return <DashboardSkeleton />;
   }
 
-  if (currentRole === 'dealer') {
+  // Securely render the dealer view only if the user is authenticated
+  if (currentRole === 'dealer' && user) {
     return <DealerView />;
   }
 

@@ -4,12 +4,11 @@
 import { DealerView } from '@/components/dashboard/dealer-view';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
-import { useUser, useAuth } from '@/firebase';
+import { useUser } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
-import { signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
 
 function DashboardSkeleton() {
   return (
@@ -40,50 +39,63 @@ function DashboardSkeleton() {
 }
 
 
-export default function DashboardClient({ role, name }: { role?: string; name?: string }) {
+export default function DashboardClient({ role: initialRole, name: initialName }: { role?: string; name?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { addPlayer, getPlayerByName, isLoading: isGameLoading } = useGame();
   const { user, isUserLoading } = useUser();
-  const auth = useAuth();
   
-  const currentRole = role || searchParams.get('role');
-  const currentName = name || searchParams.get('name');
+  // Determine the effective role and name, prioritizing URL params
+  const paramRole = searchParams.get('role');
+  const paramName = searchParams.get('name');
+
+  // Use a state to manage the role to prevent re-renders from causing loops
+  const [effectiveRole, setEffectiveRole] = useState(paramRole || initialRole);
+
+  const currentName = paramName || initialName;
   
   const isLoading = isGameLoading || isUserLoading;
 
   useEffect(() => {
-    // If auth state is still loading, wait.
+    // If auth is loading, wait.
     if (isUserLoading) return;
-
-    // If the role is dealer, but there's no authenticated user, initiate sign-in.
-    if (currentRole === 'dealer' && !user) {
-        const provider = new GoogleAuthProvider();
-        signInWithRedirect(auth, provider);
-        return; // signInWithRedirect will navigate away, so we can stop here.
+    
+    // Scenario: User has just logged in via redirect, but there's no role in the URL.
+    // We can infer they are the dealer.
+    if (!paramRole && user) {
+        setEffectiveRole('dealer');
+        // We can optionally clean up the URL here, but it's not strictly necessary.
+        // router.replace('/dashboard?role=dealer', { scroll: false });
     }
 
-    // Handle Player joining
-    if (currentRole === 'player') {
-      if (currentName && !getPlayerByName(currentName)) {
+    // Handle Player joining - this should only run once
+    if (paramRole === 'player' && currentName) {
+      if (!getPlayerByName(currentName)) {
         addPlayer(currentName);
       }
     }
-
-  }, [isUserLoading, currentRole, user, auth, addPlayer, getPlayerByName, currentName]);
+  }, [user, isUserLoading, paramRole, currentName, addPlayer, getPlayerByName]);
   
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
-  // Securely render the dealer view only if the user is authenticated and role is dealer
-  if (currentRole === 'dealer' && user) {
+  // Render based on the determined role
+  if (effectiveRole === 'dealer' && user) {
     return <DealerView />;
   }
 
-  if (currentRole === 'player' && currentName) {
-    return <PlayerView playerName={currentName} />;
+  if (effectiveRole === 'player' && currentName) {
+    const player = getPlayerByName(currentName);
+    // Show skeleton if player is not yet in the game state
+    return player ? <PlayerView playerName={currentName} /> : <DashboardSkeleton />;
   }
+  
+  // If the user is not logged in and trying to access dealer page, show skeleton
+  if (effectiveRole === 'dealer' && !user) {
+    return <DashboardSkeleton />;
+  }
+
 
   // Fallback for invalid states or while redirects are happening.
   return <DashboardSkeleton />;

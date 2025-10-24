@@ -9,44 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, UserCog } from "lucide-react";
 import { useAuth } from "@/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithRedirect, GoogleAuthProvider } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 
 export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
-  const [dealerEmail, setDealerEmail] = useState("");
-  const [dealerPassword, setDealerPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const auth = useAuth();
   const { toast } = useToast();
-
-  const handleDealerLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!auth) {
-        toast({
-            title: "Authentication Error",
-            description: "Authentication service is not available. Please try again later.",
-            variant: "destructive",
-        });
-        return;
-    }
-    if (!dealerEmail || !dealerPassword) return;
-    setIsLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, dealerEmail, dealerPassword);
-      router.push('/dashboard?role=dealer');
-    } catch (error: any) {
-      console.error("Dealer login failed", error);
-      toast({
-        title: "Login Failed",
-        description: "Invalid email or password. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handlePlayerLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +25,26 @@ export function RoleSelector() {
     }
   };
   
-  const handleDealerClick = () => {
-    router.push('/dashboard?role=dealer');
+  const handleDealerClick = async () => {
+    if (!auth) {
+        toast({
+            title: "Authentication Error",
+            description: "Authentication service is not available. Please try again later.",
+            variant: "destructive",
+        });
+        return;
+    }
+    const provider = new GoogleAuthProvider();
+    try {
+        await signInWithRedirect(auth, provider);
+    } catch (error) {
+        console.error("Dealer sign-in failed", error);
+        toast({
+            title: "Sign-in Failed",
+            description: "Could not initiate dealer sign-in. Please try again.",
+            variant: "destructive",
+        });
+    }
   };
 
   return (
@@ -88,7 +76,7 @@ export function RoleSelector() {
         </form>
       </TabsContent>
       <TabsContent value="dealer" className="mt-4">
-         <p className="text-center text-primary-foreground/80">You will be redirected to log in as the dealer.</p>
+         <p className="text-center text-primary-foreground/80">Click the 'Dealer' tab to be redirected to log in as the dealer.</p>
       </TabsContent>
     </Tabs>
   );

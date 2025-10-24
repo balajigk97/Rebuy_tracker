@@ -40,6 +40,11 @@ const initialState: GameState = {
 const gameReducer = (state: GameState, action: Action): GameState => {
   switch (action.type) {
     case 'SET_STATE':
+      // Ensure that we don't return the exact same object if players are the same
+      // This prevents unnecessary re-renders
+      if (JSON.stringify(state.players) === JSON.stringify(action.payload.players)) {
+        return { ...state, isLoading: action.payload.isLoading };
+      }
       return action.payload;
     case 'ADD_PLAYER':
       const newPlayer: Player = {
@@ -103,11 +108,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const { toast } = useToast();
 
+  // Effect to load state from localStorage on initial mount
   useEffect(() => {
     try {
       const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (savedState) {
-        const parsedState: GameState = JSON.parse(savedState);
+        const parsedState: Omit<GameState, 'isLoading'> = JSON.parse(savedState);
         dispatch({ type: 'SET_STATE', payload: { ...parsedState, isLoading: false } });
       } else {
         dispatch({ type: 'SET_STATE', payload: { ...initialState, isLoading: false } });
@@ -118,17 +124,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Effect to save state to localStorage whenever it changes
   useEffect(() => {
-    // We don't save isLoading state
-    const stateToSave = { players: state.players };
     try {
       if(!state.isLoading) {
+        const stateToSave = { players: state.players };
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
       }
     } catch (error) {
       console.error("Failed to save state to localStorage", error);
     }
   }, [state.players, state.isLoading]);
+
+  // Effect to listen for changes in other tabs
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === LOCAL_STORAGE_KEY && event.newValue) {
+        try {
+          const newState: Omit<GameState, 'isLoading'> = JSON.parse(event.newValue);
+          dispatch({ type: 'SET_STATE', payload: { ...newState, isLoading: state.isLoading } });
+        } catch (error) {
+          console.error("Failed to parse state from storage event", error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [state.isLoading]); // Depend on isLoading to avoid running on initial server render
 
   const addPlayer = useCallback(
     (name: string) => {

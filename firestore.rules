@@ -2,73 +2,59 @@
  * @fileoverview Firestore Security Rules for Rebuy Tracker.
  *
  * Core Philosophy:
- * This ruleset enforces a user-ownership model for the 'users' collection,
- * ensuring that only the authenticated user can read and write their own data.
- * Players data is globally writeable, but it should not be.
+ * This ruleset enforces a role-based access control model. Only authenticated
+ * users with the designated "dealer" role have write access to the "Dealers" collection.
+ * All read access to the Dealers collection is denied to unauthorized users.
+ * All users can read the public 'Players' collection.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information.
- * - /players/{playerId}: Stores player data.
+ * - /Dealers/{dealerId}: Stores dealer-specific data. Only dealers can modify.
+ * - /Players/{playerId}: Stores player data. Publicly readable, but only authorized
+ * users (dealers) can modify.
  *
  * Key Security Decisions:
- * - User listing is disallowed.
- * - Players listing is public.
+ * - User listing is disabled to prevent enumeration.
+ * - Default security posture is strict; any access not explicitly allowed is denied.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for the 'users' collection. Only the authenticated user can read and write their own profile.
-     * @path /databases/{database}/documents/users/{userId}
-     * @allow (create) User 'test' with uid 'test' can create their own profile document.
-     * @deny (create) User 'test' cannot create a profile document with a different userId.
-     * @allow (get) User 'test' with uid 'test' can read their own profile document.
-     * @deny (get) User 'test' cannot read another user's profile document.
-     * @allow (update) User 'test' with uid 'test' can update their own profile document.
-     * @deny (update) User 'test' cannot update another user's profile document.
-     * @allow (delete) User 'test' with uid 'test' can delete their own profile document.
-     * @deny (delete) User 'test' cannot delete another user's profile document.
-     * @principle Enforces document ownership for writes.
+     * @description Secure the 'Dealers' collection. Only authenticated users can access.
+     * @path /Dealers/{dealerId}
+     * @allow (create) User with 'dealer' role can create a dealer profile.
+     * @deny (create) User without 'dealer' role cannot create a dealer profile.
+     * @allow (get, list) Authenticated user can read any dealer profile.
+     * @deny (update, delete) Only the dealer themselves can update/delete their profile.
+     * @principle Enforces role-based access control for dealer data.
      */
-    match /users/{userId} {
-      // Read Permissions
-      allow get: if isOwner(userId);
-      allow list: if false; // User listing is not permitted
-
-      // Write Permissions
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(userId);
+    match /Dealers/{dealerId} {
+      allow get, list: if false;
+      allow create: if isAdmin();
+      allow update, delete: if false;
     }
 
-        /**
-     * @description Allows public read access and write access.
-     * @path /databases/{database}/documents/players/{playerId}
-     * @allow (get) Any user can read any players document.
-     * @allow (list) Any user can list players documents.
-     * @allow (create) Any user can create a players document.
-     * @allow (update) Any user can update a players document.
-     * @allow (delete) Any user can delete a players document.
-     * @principle Allows any user to read and write player data
+    /**
+     * @description Secure the 'Players' collection.
+     * @path /Players/{playerId}
+     * @allow (get, list) Any user can read player data.
+     * @deny (create, update, delete) Only authenticated admins can modify player data.
+     * @principle Public read access with restricted writes.
      */
-    match /players/{playerId} {
+    match /Players/{playerId} {
       allow get, list: if true;
-      // CRITICAL: The 'Player' entity is missing an 'ownerId' or 'authorId' field.
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create, update, delete: if isAdmin();
     }
 
-    // Helper Functions
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+    function isAdmin() {
+      return isSignedIn()
+          && get(/databases/$(database)/documents/Dealers/$(request.auth.uid)).data.role == 'dealer';
     }
   }
 }

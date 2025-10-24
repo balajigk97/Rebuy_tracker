@@ -5,14 +5,22 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut, User, UserCog } from "lucide-react";
+import { useUser } from "@/firebase";
+import { getAuth, signOut } from "firebase/auth";
+import { firebaseApp } from "@/firebase";
 
 export function AppHeader() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user, isAuthenticated } = useUser();
   const role = searchParams.get("role");
   const name = searchParams.get("name");
 
-  const handleExit = () => {
+  const handleExit = async () => {
+    if (isAuthenticated) {
+      const auth = getAuth(firebaseApp);
+      await signOut(auth);
+    }
     router.push('/');
   };
   
@@ -24,11 +32,11 @@ export function AppHeader() {
           <span className="text-xl font-bold font-headline">Rebuy Tracker</span>
         </Link>
         <div className="flex items-center gap-4">
-          {role === 'dealer' && (
+          {isAuthenticated && role === 'dealer' && (
              <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
                     <UserCog className="h-4 w-4" />
-                    <span>Dealer</span>
+                    <span>Dealer: {user?.email}</span>
                 </div>
              </div>
           )}
@@ -40,7 +48,7 @@ export function AppHeader() {
           )}
           <Button variant="outline" size="sm" onClick={handleExit}>
             <LogOut className="mr-2 h-4 w-4" />
-            Exit to Home
+            {isAuthenticated ? 'Sign Out & Exit' : 'Exit to Home'}
           </Button>
         </div>
       </div>

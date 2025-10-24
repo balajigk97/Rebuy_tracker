@@ -8,10 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, UserCog } from "lucide-react";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { useToast } from "@/hooks/use-toast";
+import { firebaseApp } from "@/firebase";
 
 export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
+  const [dealerEmail, setDealerEmail] = useState("test@test.com");
+  const [dealerPassword, setDealerPassword] = useState("test1234");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const { toast } = useToast();
 
   const handlePlayerJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,8 +27,36 @@ export function RoleSelector() {
     }
   };
   
-  const handleDealerSelect = () => {
-    router.push('/dashboard?role=dealer');
+  const handleDealerLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const auth = getAuth(firebaseApp);
+    try {
+      await signInWithEmailAndPassword(auth, dealerEmail, dealerPassword);
+      router.push('/dashboard?role=dealer');
+    } catch (error: any) {
+      if (error.code === 'auth/user-not-found') {
+        // If user doesn't exist, create it
+        try {
+          await createUserWithEmailAndPassword(auth, dealerEmail, dealerPassword);
+          router.push('/dashboard?role=dealer');
+        } catch (createError: any) {
+          toast({
+            variant: "destructive",
+            title: "Error creating account",
+            description: createError.message,
+          });
+        }
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Authentication Failed",
+          description: error.message,
+        });
+      }
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -30,7 +65,7 @@ export function RoleSelector() {
         <TabsTrigger value="player" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
           <User className="mr-2 h-4 w-4" /> Player
         </TabsTrigger>
-        <TabsTrigger value="dealer" onClick={handleDealerSelect} className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+        <TabsTrigger value="dealer" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
           <UserCog className="mr-2 h-4 w-4" /> Dealer
         </TabsTrigger>
       </TabsList>
@@ -53,12 +88,37 @@ export function RoleSelector() {
         </form>
       </TabsContent>
       <TabsContent value="dealer" className="mt-4">
-         <div className="text-center text-primary-foreground/80">
-            <p>You have selected the Dealer role.</p>
-            <Button onClick={handleDealerSelect} className="w-full mt-4 bg-primary hover:bg-primary/90 text-primary-foreground">
-                Proceed to Dealer Dashboard
+         <form onSubmit={handleDealerLogin} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="email" className="text-primary-foreground">Email</Label>
+                <Input
+                id="email"
+                type="email"
+                placeholder="dealer@example.com"
+                value={dealerEmail}
+                onChange={(e) => setDealerEmail(e.target.value)}
+                required
+                className="bg-background/80 text-foreground"
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="password" className="text-primary-foreground">Password</Label>
+                <Input
+                id="password"
+                type="password"
+                value={dealerPassword}
+                onChange={(e) => setDealerPassword(e.target.value)}
+                required
+                className="bg-background/80 text-foreground"
+                />
+            </div>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
+                {isSubmitting ? 'Logging in...' : 'Login as Dealer'}
             </Button>
-         </div>
+            <p className="text-xs text-center text-primary-foreground/60">
+                Use test@test.com / test1234 or your own credentials. An account will be created if it doesn't exist.
+            </p>
+        </form>
       </TabsContent>
     </Tabs>
   );

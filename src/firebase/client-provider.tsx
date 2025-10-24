@@ -1,8 +1,9 @@
 
 'use client';
 import { ReactNode } from 'react';
+import { FirebaseProvider } from './provider';
 
-// This is a placeholder as we are not using Firebase in this version.
+// This provider ensures Firebase is initialized only on the client.
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return <FirebaseProvider>{children}</FirebaseProvider>;
 }

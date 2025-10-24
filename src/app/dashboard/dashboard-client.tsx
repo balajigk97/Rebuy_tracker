@@ -4,9 +4,9 @@
 import { DealerView } from '@/components/dashboard/dealer-view';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useUser } from '@/firebase';
 
 function DashboardSkeleton() {
   return (
@@ -18,10 +18,21 @@ function DashboardSkeleton() {
 
 export default function DashboardClient({ role: initialRole, name: initialName }: { role?: string; name?: string }) {
   const searchParams = useSearchParams();
-  const { addPlayer, getPlayerByName, isLoading } = useGame();
+  const router = useRouter();
+  const { addPlayer, getPlayerByName, isLoading: isGameLoading } = useGame();
+  const { user, isLoading: isUserLoading, isAuthenticated } = useUser();
   
   const role = searchParams.get('role') || initialRole;
   const name = searchParams.get('name') || initialName;
+
+  const isLoading = isUserLoading || isGameLoading;
+
+  useEffect(() => {
+    if (!isUserLoading && role === 'dealer' && !isAuthenticated) {
+      // If trying to access dealer page without being logged in, redirect to home.
+      router.push('/');
+    }
+  }, [isUserLoading, isAuthenticated, role, router]);
 
   useEffect(() => {
     if (role === 'player' && name) {
@@ -35,7 +46,7 @@ export default function DashboardClient({ role: initialRole, name: initialName }
     return <DashboardSkeleton />;
   }
 
-  if (role === 'dealer') {
+  if (role === 'dealer' && isAuthenticated) {
     return <DealerView />;
   }
 
@@ -44,7 +55,7 @@ export default function DashboardClient({ role: initialRole, name: initialName }
     return player ? <PlayerView playerName={name} /> : <DashboardSkeleton />;
   }
   
-  // Fallback view
+  // Fallback view if role is unclear or auth state is pending/invalid
   return (
       <div className="text-center py-10">
         <h2 className="text-2xl font-semibold">Welcome to the Dashboard</h2>

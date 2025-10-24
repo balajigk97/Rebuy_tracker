@@ -46,6 +46,14 @@
     }
   },
   "auth": {
-    "providers": ["google.com", "password"]
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": {
+        "$ref": "#/entities/Player"
+      },
+      "description": "Stores individual player data for the poker game."
+    }
   }
 }

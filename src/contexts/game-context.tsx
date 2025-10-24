@@ -1,6 +1,6 @@
 'use client';
-import React, { createContext, useContext, useMemo, useCallback, ReactNode } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect, useState } from 'react';
+import { useFirestore, useCollection, useMemoFirebase, useAuth, initiateAnonymousSignIn } from '@/firebase';
 import { collection, doc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
@@ -12,7 +12,6 @@ import {
 
 export interface GameContextType {
   players: Player[];
-  lastUpdated: string | null; // Kept for API consistency, but driven by Firestore
   isLoading: boolean;
   addPlayer: (name: string) => void;
   deletePlayer: (id: string) => void;
@@ -26,12 +25,21 @@ export const GameContext = createContext<GameContextType | undefined>(undefined)
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const firestore = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    if (auth) {
+        initiateAnonymousSignIn(auth);
+    }
+  }, [auth]);
 
   const playersColRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !isClient) return null;
     return collection(firestore, 'players');
-  }, [firestore]);
+  }, [firestore, isClient]);
 
   const { data: players, isLoading: isPlayersLoading } = useCollection<Omit<Player, 'id'>>(playersColRef);
 
@@ -138,8 +146,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       players: players || [],
-      lastUpdated: null, // Firestore handles real-time updates
-      isLoading: isPlayersLoading,
+      isLoading: isPlayersLoading || !isClient,
       addPlayer,
       deletePlayer,
       addRebuy,
@@ -150,6 +157,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [
       players,
       isPlayersLoading,
+      isClient,
       addPlayer,
       deletePlayer,
       addRebuy,

@@ -40,7 +40,11 @@ const initialState: GameState = {
 const gameReducer = (state: GameState, action: Action): GameState => {
   switch (action.type) {
     case 'SET_STATE':
-      return action.payload;
+        // Only update if the incoming state is different to prevent loops
+        if (JSON.stringify(action.payload.players) !== JSON.stringify(state.players)) {
+            return { ...state, players: action.payload.players };
+        }
+        return state;
     case 'ADD_PLAYER':
       const newPlayer: Player = {
         id: uuidv4(),
@@ -107,12 +111,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedState) {
-        const parsedState: Omit<GameState, 'isLoading'> = JSON.parse(savedState);
-        dispatch({ type: 'SET_STATE', payload: { ...parsedState, isLoading: false } });
-      } else {
-        dispatch({ type: 'SET_STATE', payload: { ...initialState, isLoading: false } });
-      }
+      const payload = savedState ? JSON.parse(savedState) : { players: [] };
+      dispatch({ type: 'SET_STATE', payload: { ...payload, isLoading: false } });
     } catch (error) {
       console.error("Failed to load state from localStorage", error);
       dispatch({ type: 'SET_STATE', payload: { ...initialState, isLoading: false } });
@@ -134,21 +134,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Effect to listen for changes in other tabs
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === LOCAL_STORAGE_KEY && event.newValue) {
-        try {
-          const newState: Omit<GameState, 'isLoading'> = JSON.parse(event.newValue);
-          dispatch({ type: 'SET_STATE', payload: { ...newState, isLoading: state.isLoading } });
-        } catch (error) {
-          console.error("Failed to parse state from storage event", error);
+        if (event.key === LOCAL_STORAGE_KEY && event.newValue) {
+            try {
+                const newState = JSON.parse(event.newValue);
+                dispatch({ type: 'SET_STATE', payload: { ...newState, isLoading: false } });
+            } catch (error) {
+                console.error("Failed to parse state from storage event", error);
+            }
         }
-      }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [state.isLoading]); // Depend on isLoading to avoid running on initial server render
+  }, []); 
 
   const addPlayer = useCallback(
     (name: string) => {

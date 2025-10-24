@@ -37,9 +37,9 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 // --- Provider ---
 export function GameProvider({ children }: { children: ReactNode }) {
-  const [gameState, setGameState] = useState<GameState>({ players: [], lastUpdated: null });
-  const [isLoading, setIsLoading] = useState(true);
+  const [gameState, setGameState] = useState<GameState | undefined>(undefined);
   const { toast } = useToast();
+  const isLoading = gameState === undefined;
 
   // Load from localStorage on initial client-side mount
   useEffect(() => {
@@ -47,12 +47,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const savedStateJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (savedStateJSON) {
         setGameState(JSON.parse(savedStateJSON));
+      } else {
+        // If no saved state, initialize with empty state
+        setGameState({ players: [], lastUpdated: null });
       }
     } catch (error) {
       console.error('Failed to load state from localStorage', error);
-      setGameState({ players: [], lastUpdated: new Date().toISOString() });
-    } finally {
-      setIsLoading(false);
+      // Initialize with empty state on error
+      setGameState({ players: [], lastUpdated: null });
     }
   }, []);
 
@@ -77,7 +79,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Unified function to update state and persist to localStorage
   const updateAndPersistState = useCallback((updater: (prevState: GameState) => GameState) => {
+    // We can only update state if it has been loaded from localStorage first
     setGameState(prevState => {
+      if (prevState === undefined) return undefined; // Should not happen, but a safeguard
       const newState = updater(prevState);
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newState));
@@ -195,9 +199,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const getPlayerByName = useCallback(
     (name: string): Player | undefined => {
-      return gameState.players.find((p) => p.name.toLowerCase() === name.toLowerCase());
+      return gameState?.players.find((p) => p.name.toLowerCase() === name.toLowerCase());
     },
-    [gameState.players]
+    [gameState?.players]
   );
 
   const updateBlackCoins = useCallback((playerId: string, count: number) => {
@@ -214,8 +218,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      players: gameState.players,
-      lastUpdated: gameState.lastUpdated,
+      players: gameState?.players ?? [],
+      lastUpdated: gameState?.lastUpdated ?? null,
       isLoading,
       addPlayer,
       deletePlayer,

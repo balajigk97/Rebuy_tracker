@@ -45,7 +45,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const { data: players = [], isLoading: isCollectionLoading } = useCollection<Player>(playersColRef);
 
   // The overall loading state depends on both user auth and collection loading.
-  const isLoading = isUserLoading || (!!playersColref && isCollectionLoading);
+  const isLoading = isUserLoading || (!!playersColRef && isCollectionLoading);
 
   const addPlayer = useCallback(
     (name: string) => {

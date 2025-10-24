@@ -8,21 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, UserCog } from "lucide-react";
-import { useAuth } from "@/firebase";
-import { GoogleAuthProvider, signInWithRedirect } from "firebase/auth";
 
 export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
   const router = useRouter();
-  const auth = useAuth();
 
   const handleDealerLogin = () => {
-    // This will redirect the user to the Google sign-in page.
-    // After signing in, they will be redirected back to the app.
-    const provider = new GoogleAuthProvider();
-    if (auth) {
-      signInWithRedirect(auth, provider);
-    }
+    router.push('/dashboard?role=dealer');
   };
 
   const handlePlayerLogin = (e: React.FormEvent) => {

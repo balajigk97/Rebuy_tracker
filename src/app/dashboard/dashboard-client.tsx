@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DealerView } from '@/components/dashboard/dealer-view';
@@ -5,9 +6,10 @@ import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 
 function DashboardSkeleton() {
   return (
@@ -40,58 +42,55 @@ function DashboardSkeleton() {
 
 export default function DashboardClient({ role, name }: { role?: string; name?: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addPlayer, getPlayerByName } = useGame();
   const { user, isUserLoading } = useUser();
-  const searchParams = useSearchParams();
+  const auth = useAuth();
+  const currentRole = searchParams.get('role');
 
   useEffect(() => {
-    const currentRole = searchParams.get('role');
-    const currentName = searchParams.get('name');
-
-    // Wait until user loading is complete before doing anything
-    if (isUserLoading) {
-      return;
+    if (isUserLoading || !currentRole) {
+      return; // Wait until loading is done and we know the role
     }
 
-    // Scenario 1: User has just logged in (user object is present), but role isn't in URL yet.
-    // This happens right after the redirect from Google sign-in.
-    // Or, user is logged in and visits /dashboard without a role.
-    if (user && !currentRole) {
-      router.replace('/dashboard?role=dealer');
-      return;
+    // Handle Dealer Auth
+    if (currentRole === 'dealer') {
+      if (!user) {
+        // If not logged in, start the sign-in process
+        const provider = new GoogleAuthProvider();
+        if (auth) {
+          signInWithRedirect(auth, provider);
+        }
+      }
+      // If user is logged in, they will see the DealerView, nothing more to do.
     }
 
-    // Scenario 2: A non-logged-in user tries to access the dealer dashboard.
-    if (currentRole === 'dealer' && !user) {
-      router.replace('/');
-      return;
-    }
-    
-    // Scenario 3: A player joins the game.
-    if (currentRole === 'player' && currentName) {
-      const playerExists = getPlayerByName(currentName);
-      if (!playerExists) {
+    // Handle Player joining
+    if (currentRole === 'player') {
+      const currentName = searchParams.get('name');
+      if (currentName && !getPlayerByName(currentName)) {
         addPlayer(currentName);
       }
     }
-    
-  }, [user, isUserLoading, router, addPlayer, getPlayerByName, searchParams]);
 
+  }, [user, isUserLoading, currentRole, auth, router, addPlayer, getPlayerByName, searchParams]);
+  
   if (isUserLoading) {
     return <DashboardSkeleton />;
   }
 
-  const currentRole = searchParams.get('role');
-  
-  if (currentRole === 'dealer' && user) {
-    return <DealerView />;
+  if (currentRole === 'dealer') {
+    if (user) {
+      return <DealerView />;
+    }
+    // If dealer role but no user, show skeleton while redirecting to sign-in
+    return <DashboardSkeleton />;
   }
 
   if (currentRole === 'player' && name) {
     return <PlayerView playerName={name} />;
   }
 
-  // Fallback while redirecting or for invalid states.
-  // This will show while the useEffect is determining the correct route.
+  // Fallback for invalid states or while redirects are happening.
   return <DashboardSkeleton />;
 }

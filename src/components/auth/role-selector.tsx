@@ -8,18 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, UserCog } from "lucide-react";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/firebase";
 
 export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
-  const [dealerEmail, setDealerEmail] = useState("test@test.com");
-  const [dealerPassword, setDealerPassword] = useState("test1234");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
-  const auth = useAuth();
 
   const handlePlayerJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,43 +20,8 @@ export function RoleSelector() {
     }
   };
   
-  const handleDealerLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!auth) {
-      toast({
-        variant: "destructive",
-        title: "Authentication service not available",
-        description: "Please try again later.",
-      });
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      await signInWithEmailAndPassword(auth, dealerEmail, dealerPassword);
-      router.push('/dashboard?role=dealer');
-    } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
-        // If user doesn't exist, create it
-        try {
-          await createUserWithEmailAndPassword(auth, dealerEmail, dealerPassword);
-          router.push('/dashboard?role=dealer');
-        } catch (createError: any) {
-          toast({
-            variant: "destructive",
-            title: "Error creating account",
-            description: createError.message,
-          });
-        }
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Authentication Failed",
-          description: error.message,
-        });
-      }
-    } finally {
-        setIsSubmitting(false);
-    }
+  const handleDealerJoin = () => {
+    router.push('/dashboard?role=dealer');
   };
 
   return (
@@ -96,37 +53,14 @@ export function RoleSelector() {
         </form>
       </TabsContent>
       <TabsContent value="dealer" className="mt-4">
-         <form onSubmit={handleDealerLogin} className="space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor="email" className="text-primary-foreground">Email</Label>
-                <Input
-                id="email"
-                type="email"
-                placeholder="dealer@example.com"
-                value={dealerEmail}
-                onChange={(e) => setDealerEmail(e.target.value)}
-                required
-                className="bg-background/80 text-foreground"
-                />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="password" className="text-primary-foreground">Password</Label>
-                <Input
-                id="password"
-                type="password"
-                value={dealerPassword}
-                onChange={(e) => setDealerPassword(e.target.value)}
-                required
-                className="bg-background/80 text-foreground"
-                />
-            </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting || !auth}>
-                {isSubmitting ? 'Logging in...' : 'Login as Dealer'}
-            </Button>
-            <p className="text-xs text-center text-primary-foreground/60">
-                Use test@test.com / test1234 or your own credentials. An account will be created if it doesn't exist.
+         <div className="space-y-4 text-center">
+            <p className="text-primary-foreground/80">
+                Proceed to the dashboard to manage the game.
             </p>
-        </form>
+            <Button onClick={handleDealerJoin} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                Enter as Dealer
+            </Button>
+        </div>
       </TabsContent>
     </Tabs>
   );

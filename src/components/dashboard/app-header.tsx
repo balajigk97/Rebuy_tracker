@@ -5,21 +5,14 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut, User, UserCog } from "lucide-react";
-import { useUser, useAuth } from "@/firebase";
-import { signOut } from "firebase/auth";
 
 export function AppHeader() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, isAuthenticated } = useUser();
-  const auth = useAuth();
   const role = searchParams.get("role");
   const name = searchParams.get("name");
 
-  const handleExit = async () => {
-    if (auth && isAuthenticated) {
-      await signOut(auth);
-    }
+  const handleExit = () => {
     router.push('/');
   };
   
@@ -31,11 +24,11 @@ export function AppHeader() {
           <span className="text-xl font-bold font-headline">Rebuy Tracker</span>
         </Link>
         <div className="flex items-center gap-4">
-          {isAuthenticated && role === 'dealer' && (
+          {role === 'dealer' && (
              <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
                     <UserCog className="h-4 w-4" />
-                    <span>Dealer: {user?.email}</span>
+                    <span>Dealer</span>
                 </div>
              </div>
           )}
@@ -47,7 +40,7 @@ export function AppHeader() {
           )}
           <Button variant="outline" size="sm" onClick={handleExit}>
             <LogOut className="mr-2 h-4 w-4" />
-            {isAuthenticated ? 'Sign Out & Exit' : 'Exit to Home'}
+            Exit to Home
           </Button>
         </div>
       </div>

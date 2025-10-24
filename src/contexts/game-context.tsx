@@ -1,38 +1,88 @@
 
 'use client';
 
-import {
+import React, {
   createContext,
   useContext,
   ReactNode,
+  useReducer,
   useCallback,
   useMemo,
+  useEffect,
 } from 'react';
 import type { Player } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import {
-  useCollection,
-  useFirebase,
-  useFirestore,
-  useUser,
-  useMemoFirebase,
-} from '@/firebase';
-import {
-  collection,
-  addDoc,
-  doc,
-  updateDoc,
-  deleteDoc,
-  writeBatch,
-} from 'firebase/firestore';
-import {
-  addDocumentNonBlocking,
-  deleteDocumentNonBlocking,
-  updateDocumentNonBlocking,
-} from '@/firebase/non-blocking-updates';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
+import { v4 as uuidv4 } from 'uuid';
 
+// --- Reducer Actions ---
+type Action =
+  | { type: 'ADD_PLAYER'; payload: { name: string } }
+  | { type: 'DELETE_PLAYER'; payload: { playerId: string } }
+  | { type: 'ADD_REBUY'; payload: { playerId: string } }
+  | { type: 'REMOVE_REBUY'; payload: { playerId: string } }
+  | { type: 'UPDATE_BLACK_COINS'; payload: { playerId: string; count: number } }
+  | { type: 'SET_LOADING'; payload: boolean };
+
+// --- State ---
+interface GameState {
+  players: Player[];
+  isLoading: boolean;
+}
+
+const initialState: GameState = {
+  players: [],
+  isLoading: true,
+};
+
+// --- Reducer ---
+const gameReducer = (state: GameState, action: Action): GameState => {
+  switch (action.type) {
+    case 'ADD_PLAYER':
+      const newPlayer: Player = {
+        id: uuidv4(),
+        name: action.payload.name,
+        rebuys: 1,
+        blackCoins: 0,
+      };
+      return { ...state, players: [...state.players, newPlayer] };
+    case 'DELETE_PLAYER':
+      return {
+        ...state,
+        players: state.players.filter((p) => p.id !== action.payload.playerId),
+      };
+    case 'ADD_REBUY':
+      return {
+        ...state,
+        players: state.players.map((p) =>
+          p.id === action.payload.playerId ? { ...p, rebuys: p.rebuys + 1 } : p
+        ),
+      };
+    case 'REMOVE_REBUY':
+      return {
+        ...state,
+        players: state.players.map((p) =>
+          p.id === action.payload.playerId && p.rebuys > 1
+            ? { ...p, rebuys: p.rebuys - 1 }
+            : p
+        ),
+      };
+    case 'UPDATE_BLACK_COINS':
+      return {
+        ...state,
+        players: state.players.map((p) =>
+          p.id === action.payload.playerId
+            ? { ...p, blackCoins: action.payload.count }
+            : p
+        ),
+      };
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    default:
+      return state;
+  }
+};
+
+// --- Context ---
 interface GameContextType {
   players: Player[];
   isLoading: boolean;
@@ -46,25 +96,23 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
+// --- Provider ---
 export function GameProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(gameReducer, initialState);
   const { toast } = useToast();
-  const { user, isLoading: isUserLoading } = useUser();
-  const firestore = useFirestore();
 
-  const playersColRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'players');
-  }, [firestore]);
-
-  const { data: players, isLoading: isCollectionLoading } =
-    useCollection<Player>(playersColRef);
-
-  const isLoading = isUserLoading || isCollectionLoading;
+  useEffect(() => {
+    // Simulate initial loading
+    dispatch({ type: 'SET_LOADING', payload: true });
+    const timer = setTimeout(() => {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const addPlayer = useCallback(
     (name: string) => {
-      if (!playersColRef) return;
-      if (players?.find((p) => p.name.toLowerCase() === name.toLowerCase())) {
+      if (state.players.find((p) => p.name.toLowerCase() === name.toLowerCase())) {
         toast({
           title: 'Player already exists',
           description: `${name} is already at the table.`,
@@ -72,116 +120,83 @@ export function GameProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-
-      const newPlayer: Omit<Player, 'id'> = {
-        name,
-        rebuys: 1,
-        blackCoins: 0,
-      };
-
-      addDoc(playersColRef, newPlayer)
-        .then(() => {
-          toast({
-            title: 'Player Joined',
-            description: `${name} has joined the table with 1 buy-in.`,
-          });
-        })
-        .catch(() => {
-          const permissionError = new FirestorePermissionError({
-            path: playersColRef.path,
-            operation: 'create',
-            requestResourceData: newPlayer,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      dispatch({ type: 'ADD_PLAYER', payload: { name } });
+      toast({
+        title: 'Player Joined',
+        description: `${name} has joined the table with 1 buy-in.`,
+      });
     },
-    [playersColRef, players, toast]
+    [state.players, toast]
   );
 
   const deletePlayer = useCallback(
     (playerId: string) => {
-      if (!playersColRef) return;
-      const player = players?.find((p) => p.id === playerId);
-      if (!player) return;
-
-      const playerDocRef = doc(playersColRef, playerId);
-      deleteDocumentNonBlocking(playerDocRef);
-      toast({
-        title: 'Player Removed',
-        description: `${player.name} has been removed from the table.`,
-        variant: 'destructive',
-      });
+      const player = state.players.find((p) => p.id === playerId);
+      if(player) {
+        dispatch({ type: 'DELETE_PLAYER', payload: { playerId } });
+        toast({
+          title: 'Player Removed',
+          description: `${player.name} has been removed from the table.`,
+          variant: 'destructive',
+        });
+      }
     },
-    [playersColRef, players, toast]
+    [state.players, toast]
   );
 
   const addRebuy = useCallback(
     (playerId: string) => {
-      if (!playersColRef) return;
-      const player = players?.find((p) => p.id === playerId);
-      if (!player) return;
-
-      const playerDocRef = doc(playersColRef, playerId);
-      const newRebuys = player.rebuys + 1;
-      updateDocumentNonBlocking(playerDocRef, { rebuys: newRebuys });
-
-      toast({
-        title: 'Re-buy Added',
-        description: `${player.name} has re-bought.`,
-      });
+      const player = state.players.find((p) => p.id === playerId);
+      if(player) {
+          dispatch({ type: 'ADD_REBUY', payload: { playerId } });
+          toast({
+              title: 'Re-buy Added',
+              description: `${player.name} has re-bought.`,
+          });
+      }
     },
-    [playersColRef, players, toast]
+    [state.players, toast]
   );
 
   const removeRebuy = useCallback(
     (playerId: string) => {
-      if (!playersColRef) return;
-      const player = players?.find((p) => p.id === playerId);
-      if (!player) return;
-
-      if (player.rebuys <= 1) {
-        toast({
-          title: 'Action Not Allowed',
-          description: 'Cannot remove the initial buy-in.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const playerDocRef = doc(playersColRef, playerId);
-      const newRebuys = player.rebuys - 1;
-      updateDocumentNonBlocking(playerDocRef, { rebuys: newRebuys });
-
-      toast({
-        title: 'Re-buy Removed',
-        description: `A re-buy was removed for ${player.name}.`,
-        variant: 'destructive',
-      });
+        const player = state.players.find((p) => p.id === playerId);
+        if (player) {
+            if (player.rebuys <= 1) {
+                toast({
+                  title: 'Action Not Allowed',
+                  description: 'Cannot remove the initial buy-in.',
+                  variant: 'destructive',
+                });
+                return;
+            }
+            dispatch({ type: 'REMOVE_REBUY', payload: { playerId } });
+            toast({
+                title: 'Re-buy Removed',
+                description: `A re-buy was removed for ${player.name}.`,
+                variant: 'destructive',
+              });
+        }
     },
-    [playersColRef, players, toast]
+    [state.players, toast]
   );
 
   const getPlayerByName = useCallback(
     (name: string): Player | undefined => {
-      return players?.find((p) => p.name.toLowerCase() === name.toLowerCase());
+      return state.players.find((p) => p.name.toLowerCase() === name.toLowerCase());
     },
-    [players]
+    [state.players]
   );
 
-  const updateBlackCoins = useCallback(
-    (playerId: string, count: number) => {
-      if (!playersColRef) return;
-      const validCount = count >= 0 ? count : 0;
-      const playerDocRef = doc(playersColRef, playerId);
-      updateDocumentNonBlocking(playerDocRef, { blackCoins: validCount });
-    },
-    [playersColRef]
-  );
+  const updateBlackCoins = useCallback((playerId: string, count: number) => {
+    const validCount = count >= 0 ? count : 0;
+    dispatch({ type: 'UPDATE_BLACK_COINS', payload: { playerId, count: validCount } });
+  }, []);
 
   const value = useMemo(
     () => ({
-      players: players ?? [],
-      isLoading,
+      players: state.players,
+      isLoading: state.isLoading,
       addPlayer,
       deletePlayer,
       addRebuy,
@@ -190,8 +205,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       updateBlackCoins,
     }),
     [
-      players,
-      isLoading,
+      state.players,
+      state.isLoading,
       addPlayer,
       deletePlayer,
       addRebuy,
@@ -204,6 +219,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
 
+// --- Hook ---
 export function useGame() {
   const context = useContext(GameContext);
   if (context === undefined) {

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useGame } from "@/contexts/game-context";
@@ -10,10 +11,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MinusCircle, PlusCircle, User } from "lucide-react";
+import { MinusCircle, PlusCircle, Trash2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "../ui/input";
 import { Skeleton } from "../ui/skeleton";
+import { ConfirmationDialog } from "../shared/confirmation-dialog";
 
 interface PlayerListProps {
   isDealer?: boolean;
@@ -48,7 +50,7 @@ function PlayerListSkeleton() {
   }
 
 export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerListProps) {
-  const { players, addRebuy, removeRebuy, updateBlackCoins, isLoading } = useGame();
+  const { players, addRebuy, removeRebuy, deletePlayer, updateBlackCoins, isLoading } = useGame();
 
   if (isLoading) {
     return <PlayerListSkeleton />;
@@ -117,6 +119,20 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                         >
                           <PlusCircle className="h-5 w-5 text-green-600" />
                         </Button>
+                        <ConfirmationDialog
+                          title="Delete Player?"
+                          description={`Are you sure you want to delete ${player.name}? This action cannot be undone.`}
+                          onConfirm={() => deletePlayer(player.id)}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete ${player.name}`}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </Button>
+                        </ConfirmationDialog>
                       </div>
                     </TableCell>
                   )}

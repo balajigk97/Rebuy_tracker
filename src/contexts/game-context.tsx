@@ -17,6 +17,7 @@ interface GameContextType {
   players: Player[];
   isLoading: boolean;
   addPlayer: (name: string) => void;
+  deletePlayer: (playerId: string) => void;
   addRebuy: (playerId: string) => void;
   removeRebuy: (playerId: string) => void;
   getPlayerByName: (name: string) => Player | undefined;
@@ -65,6 +66,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
     },
     [players, toast]
   );
+  
+  const deletePlayer = useCallback(
+    (playerId: string) => {
+      let playerName = '';
+      setPlayers((prev) =>
+        prev.filter((p) => {
+          if (p.id === playerId) {
+            playerName = p.name;
+            return false;
+          }
+          return true;
+        })
+      );
+      if (playerName) {
+        toast({
+          title: 'Player Removed',
+          description: `${playerName} has been removed from the table.`,
+          variant: 'destructive',
+        });
+      }
+    },
+    [toast]
+  );
 
   const addRebuy = useCallback(
     (playerId: string) => {
@@ -91,9 +115,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const removeRebuy = useCallback(
     (playerId: string) => {
-        let playerName = '';
-        let canRemove = false;
-
         const player = players.find((p) => p.id === playerId);
 
         if (!player) return;
@@ -110,7 +131,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setPlayers((prev) =>
             prev.map((p) => {
                 if (p.id === playerId) {
-                    playerName = p.name;
                     return { ...p, rebuys: p.rebuys - 1 };
                 }
                 return p;
@@ -119,7 +139,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       
         toast({
             title: 'Re-buy Removed',
-            description: `A re-buy was removed for ${playerName}.`,
+            description: `A re-buy was removed for ${player.name}.`,
             variant: 'destructive',
         });
     },
@@ -145,6 +165,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       players,
       isLoading,
       addPlayer,
+      deletePlayer,
       addRebuy,
       removeRebuy,
       getPlayerByName,
@@ -154,6 +175,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       players,
       isLoading,
       addPlayer,
+      deletePlayer,
       addRebuy,
       removeRebuy,
       getPlayerByName,

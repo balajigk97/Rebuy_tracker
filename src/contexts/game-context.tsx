@@ -1,6 +1,6 @@
 'use client';
-import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect } from 'react';
-import { useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import React, { createContext, useContext, useMemo, useCallback, ReactNode } from 'react';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
@@ -9,12 +9,10 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
-import { useUser } from '@/firebase/auth/use-user';
-
 
 export interface GameContextType {
   players: Player[];
-  lastUpdated: string | null;
+  lastUpdated: string | null; // Kept for API consistency, but driven by Firestore
   isLoading: boolean;
   addPlayer: (name: string) => void;
   deletePlayer: (id: string) => void;
@@ -30,16 +28,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  // We are no longer using Firebase Auth for this simple app.
-  // The useUser and auth hooks are removed to simplify.
-
   const playersColRef = useMemoFirebase(() => {
     if (!firestore) return null;
-    // This collection is now publicly readable as per the simplified model
     return collection(firestore, 'players');
   }, [firestore]);
 
-  // We assume the rules will be set to allow public reads for the 'players' collection
   const { data: players, isLoading: isPlayersLoading } = useCollection<Omit<Player, 'id'>>(playersColRef);
 
   const getPlayerByName = useCallback(
@@ -66,7 +59,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         blackCoins: 0,
         createdAt: Timestamp.now(),
       };
-      // All writes are now non-blocking and assumed to succeed from the dealer view.
       addDocumentNonBlocking(playersColRef, newPlayer);
       toast({
         title: 'Player Added',
@@ -146,7 +138,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       players: players || [],
-      lastUpdated: null, // This is now handled by Firestore's real-time nature
+      lastUpdated: null, // Firestore handles real-time updates
       isLoading: isPlayersLoading,
       addPlayer,
       deletePlayer,
@@ -169,7 +161,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
-
 
 export function useGame() {
   const context = useContext(GameContext);

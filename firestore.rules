@@ -1,62 +1,53 @@
 /**
- * @fileoverview Firestore Security Rules for the poker game application.
+ * @fileoverview Firestore Security Rules for Prototyping.
  *
  * Core Philosophy:
- * This ruleset allows anyone to read player data and allows authenticated users to create, update and delete their own player data.
+ * This ruleset is in prototyping mode and prioritizes developer velocity.  It enforces basic authentication and access control.
  *
  * Data Structure:
- * All player data is stored in the `/players/{playerId}` collection.
+ * All data is stored in a flat `/players/{playerId}` collection.
  *
  * Key Security Decisions:
  * - Anonymous authentication is enabled.
- * - Players can only manage their own data.
+ * - Players can only create their own player document, after which only they can read or modify it.
+ * - Data validation is relaxed for prototyping speed, but ownership is strictly enforced.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Rules for the /players/{playerId} collection.
+     * @description Grants player read and write access to their own player document.
      * @path /players/{playerId}
-     * @allow (get, list): Anyone can read player data.
-     * @allow (create): An authenticated user can create their own player document if the ID matches their auth UID.
-     * @allow (update, delete): An authenticated user can update or delete their own player document.
-     * @deny (create): An authenticated user cannot create a player document with an ID that does not match their auth UID.
-     * @deny (update, delete): An authenticated user cannot update or delete a player document that does not belong to them.
-     * @principle Enforces document ownership for writes; allows public reads.
+     * @allow (create) User 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2' can create a player document with playerId 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2'.
+     * @allow (get) User 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2' can read a player document with playerId 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2'.
+     * @allow (update) User 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2' can update a player document with playerId 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2'.
+     * @allow (delete) User 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2' can delete a player document with playerId 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2'.
+     * @deny (create) User 'someOtherUserId' cannot create a player document with playerId 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2'.
+     * @deny (get) User 'someOtherUserId' cannot read a player document with playerId 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2'.
+     * @deny (update) User 'someOtherUserId' cannot update a player document with playerId 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2'.
+     * @deny (delete) User 'someOtherUserId' cannot delete a player document with playerId 'BKd0tuUHi1h2pR59Ys9Fwbk4VDA2'.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /players/{playerId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.auth.uid == playerId;
-      allow update, delete: if isSignedIn() && isExistingOwner(playerId);
+      allow get: if isSignedIn() && isOwner(playerId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(playerId);
+      allow update: if isSignedIn() && isOwner(playerId) && resource != null;
+      allow delete: if isSignedIn() && isExistingOwner(playerId);
     }
 
-    // --- Helper Functions ---
-
-    /**
-     * @description Checks if the user is signed in.
-     * @return {bool} True if the user is signed in, false otherwise.
-     */
+    // --- Helper functions ---
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the user is the owner of the document.
-     * @param {string} userId The user ID to check against.
-     * @return {bool} True if the user is the owner, false otherwise.
-     */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    /**
-     * @description Checks if the user is the owner of the existing document.
-     * @param {string} userId The user ID to check against.
-     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
-     */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+        return isOwner(userId) && resource != null;
     }
   }
 }

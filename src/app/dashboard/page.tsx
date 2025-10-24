@@ -1,14 +1,6 @@
-import { Suspense } from 'react';
-import DashboardClient from './dashboard-client';
+import { redirect } from 'next/navigation';
 
-export default function DashboardPage({
-  searchParams,
-}: {
-  searchParams: { role?: string; name?: string };
-}) {
-  return (
-    <Suspense>
-      <DashboardClient role={searchParams?.role} name={searchParams?.name} />
-    </Suspense>
-  );
+// This page is now obsolete and just redirects to the home page.
+export default function DashboardPage() {
+  redirect('/');
 }

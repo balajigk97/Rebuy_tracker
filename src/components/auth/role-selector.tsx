@@ -16,12 +16,12 @@ export function RoleSelector() {
   const handlePlayerJoin = (e: React.FormEvent) => {
     e.preventDefault();
     if (playerName.trim()) {
-      router.push(`/dashboard?role=player&name=${encodeURIComponent(playerName.trim())}`);
+      router.push(`/player?name=${encodeURIComponent(playerName.trim())}`);
     }
   };
   
   const handleDealerJoin = () => {
-    router.push('/dashboard?role=dealer');
+    router.push('/dealer');
   };
 
   return (
@@ -55,7 +55,7 @@ export function RoleSelector() {
       <TabsContent value="dealer" className="mt-4">
          <div className="space-y-4 text-center">
             <p className="text-primary-foreground/80">
-                Proceed to the dashboard to manage the game.
+                Proceed to the password-protected dashboard to manage the game.
             </p>
             <Button onClick={handleDealerJoin} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                 Enter as Dealer

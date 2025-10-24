@@ -54,6 +54,7 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
   const { players, addRebuy, removeRebuy, deletePlayer, updateBlackCoins, isLoading } = useGame();
 
   const sortedPlayers = useMemo(() => {
+    // Memoizing the sorted list is crucial to prevent re-render issues with real-time data
     return [...players].sort((a, b) => b.rebuys - a.rebuys);
   }, [players]);
 

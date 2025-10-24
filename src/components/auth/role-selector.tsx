@@ -9,11 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, UserCog } from "lucide-react";
 import { useAuth } from "@/firebase";
-import { signInWithRedirect, GoogleAuthProvider } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 
 export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
+  const [dealerEmail, setDealerEmail] = useState("test@test.com");
+  const [dealerPassword, setDealerPassword] = useState("test1234");
   const router = useRouter();
   const auth = useAuth();
   const { toast } = useToast();
@@ -25,7 +27,8 @@ export function RoleSelector() {
     }
   };
   
-  const handleDealerClick = async () => {
+  const handleDealerLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!auth) {
         toast({
             title: "Authentication Error",
@@ -34,14 +37,14 @@ export function RoleSelector() {
         });
         return;
     }
-    const provider = new GoogleAuthProvider();
     try {
-        await signInWithRedirect(auth, provider);
+        await signInWithEmailAndPassword(auth, dealerEmail, dealerPassword);
+        router.push('/dashboard?role=dealer');
     } catch (error) {
         console.error("Dealer sign-in failed", error);
         toast({
             title: "Sign-in Failed",
-            description: "Could not initiate dealer sign-in. Please try again.",
+            description: "Could not sign in as dealer. Please check credentials or try again.",
             variant: "destructive",
         });
     }
@@ -53,7 +56,7 @@ export function RoleSelector() {
         <TabsTrigger value="player" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
           <User className="mr-2 h-4 w-4" /> Player
         </TabsTrigger>
-        <TabsTrigger value="dealer" onClick={handleDealerClick} className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+        <TabsTrigger value="dealer" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
           <UserCog className="mr-2 h-4 w-4" /> Dealer
         </TabsTrigger>
       </TabsList>
@@ -76,7 +79,34 @@ export function RoleSelector() {
         </form>
       </TabsContent>
       <TabsContent value="dealer" className="mt-4">
-         <p className="text-center text-primary-foreground/80">Click the 'Dealer' tab to be redirected to log in as the dealer.</p>
+         <form onSubmit={handleDealerLogin} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="email" className="text-primary-foreground">Email</Label>
+                <Input
+                id="email"
+                type="email"
+                placeholder="dealer@example.com"
+                value={dealerEmail}
+                onChange={(e) => setDealerEmail(e.target.value)}
+                required
+                className="bg-background/80 text-foreground"
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="password"  className="text-primary-foreground">Password</Label>
+                <Input
+                id="password"
+                type="password"
+                value={dealerPassword}
+                onChange={(e) => setDealerPassword(e.target.value)}
+                required
+                className="bg-background/80 text-foreground"
+                />
+            </div>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                Login as Dealer
+            </Button>
+        </form>
       </TabsContent>
     </Tabs>
   );

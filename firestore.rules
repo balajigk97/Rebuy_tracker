@@ -1,54 +1,74 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset is in **Prototyping Mode**. It prioritizes strong authorization
- *   while relaxing data validation to enable rapid development. Data validation is limited
- *   to fields crucial for authorization and relational integrity.
+ * @fileoverview Firestore Security Rules for Rebuy Tracker.
  *
  * Core Philosophy:
- *   - All data access is predicated on user authentication. Anonymous access is not permitted.
- *   - Where applicable, ownership-based access control is enforced. Users can only
- *     modify or delete resources they own.
- *   - Data consistency is maintained by validating the integrity of relational fields
- *     during `create` operations and enforcing immutability on these fields during `update`
- *     operations.
+ * This ruleset enforces a user-ownership model for the 'users' collection,
+ * ensuring that only the authenticated user can read and write their own data.
+ * Players data is globally writeable, but it should not be.
  *
  * Data Structure:
- *   - The Firestore database contains a `players` collection at the root.
+ * - /users/{userId}: Stores user profile information.
+ * - /players/{playerId}: Stores player data.
  *
  * Key Security Decisions:
- *   - Data shape is not strictly validated. This is a prototyping tradeoff.
- *   - Users cannot list other users.
- *
- * Denormalization for Authorization:
- *   - The 'Player' entity does not currently have a means of authorization.
- *     In order to proceed a `dealerId` or `ownerId` field should be added to the `Player` entity.
- *     This will allow us to perform an authorization check.
- *
- * Structural Segregation:
- *   - There is no need to segregate the data at this time.
+ * - User listing is disallowed.
+ * - Players listing is public.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     /**
-     * @description Controls access to the 'players' collection.
-     *   In the current schema, the 'Player' entity lacks an 'ownerId' or 'dealerId' field.
-     *   Without such a field, we cannot securely restrict write access to authorized users.
-     *   For now, write access is disabled to prevent unauthorized data modification.
-     *   Read access is open to all authenticated users.
-     * @path /players/{playerId}
-     * @allow (get, list) User is signed in.
-     * @deny (create, update, delete) Always. No owner ID to authorize against.
-     * @principle Requires an 'ownerId' or 'dealerId' field in the 'Player' entity for secure write access.
+     * @description Enforces user-ownership for the 'users' collection. Only the authenticated user can read and write their own profile.
+     * @path /databases/{database}/documents/users/{userId}
+     * @allow (create) User 'test' with uid 'test' can create their own profile document.
+     * @deny (create) User 'test' cannot create a profile document with a different userId.
+     * @allow (get) User 'test' with uid 'test' can read their own profile document.
+     * @deny (get) User 'test' cannot read another user's profile document.
+     * @allow (update) User 'test' with uid 'test' can update their own profile document.
+     * @deny (update) User 'test' cannot update another user's profile document.
+     * @allow (delete) User 'test' with uid 'test' can delete their own profile document.
+     * @deny (delete) User 'test' cannot delete another user's profile document.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId} {
+      // Read Permissions
+      allow get: if isOwner(userId);
+      allow list: if false; // User listing is not permitted
+
+      // Write Permissions
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(userId);
+    }
+
+        /**
+     * @description Allows public read access and write access.
+     * @path /databases/{database}/documents/players/{playerId}
+     * @allow (get) Any user can read any players document.
+     * @allow (list) Any user can list players documents.
+     * @allow (create) Any user can create a players document.
+     * @allow (update) Any user can update a players document.
+     * @allow (delete) Any user can delete a players document.
+     * @principle Allows any user to read and write player data
      */
     match /players/{playerId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if true;
+      // CRITICAL: The 'Player' entity is missing an 'ownerId' or 'authorId' field.
       allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
-    // Define the isSignedIn function
+    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
   }
 }

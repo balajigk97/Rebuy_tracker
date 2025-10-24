@@ -4,11 +4,12 @@
 import { DealerView } from '@/components/dashboard/dealer-view';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
 
 function DashboardSkeleton() {
   return (
@@ -44,41 +45,44 @@ export default function DashboardClient({ role, name }: { role?: string; name?: 
   const router = useRouter();
   const { addPlayer, getPlayerByName, isLoading: isGameLoading } = useGame();
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   
-  const currentRole = searchParams.get('role');
+  const currentRole = role || searchParams.get('role');
+  const currentName = name || searchParams.get('name');
+  
   const isLoading = isGameLoading || isUserLoading;
 
   useEffect(() => {
-    // If loading, wait.
-    if (isLoading) return;
+    // If auth state is still loading, wait.
+    if (isUserLoading) return;
 
-    // If the role is dealer, but there's no authenticated user, redirect to login.
+    // If the role is dealer, but there's no authenticated user, initiate sign-in.
     if (currentRole === 'dealer' && !user) {
-      router.replace('/');
-      return;
+        const provider = new GoogleAuthProvider();
+        signInWithRedirect(auth, provider);
+        return; // signInWithRedirect will navigate away, so we can stop here.
     }
 
     // Handle Player joining
     if (currentRole === 'player') {
-      const currentName = searchParams.get('name');
       if (currentName && !getPlayerByName(currentName)) {
         addPlayer(currentName);
       }
     }
 
-  }, [isLoading, currentRole, user, router, addPlayer, getPlayerByName, searchParams]);
+  }, [isUserLoading, currentRole, user, auth, addPlayer, getPlayerByName, currentName]);
   
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
-  // Securely render the dealer view only if the user is authenticated
+  // Securely render the dealer view only if the user is authenticated and role is dealer
   if (currentRole === 'dealer' && user) {
     return <DealerView />;
   }
 
-  if (currentRole === 'player' && name) {
-    return <PlayerView playerName={name} />;
+  if (currentRole === 'player' && currentName) {
+    return <PlayerView playerName={currentName} />;
   }
 
   // Fallback for invalid states or while redirects are happening.

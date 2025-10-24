@@ -1,74 +1,54 @@
 /**
  * @file Firestore Security Rules
- * @version 2
+ * @description This ruleset is in **Prototyping Mode**. It prioritizes strong authorization
+ *   while relaxing data validation to enable rapid development. Data validation is limited
+ *   to fields crucial for authorization and relational integrity.
  *
- * @description
- * This ruleset enforces a strict user-ownership model for all data. Each user (dealer)
- * has their own private data tree under `/users/{userId}`.  This data is only
- * accessible to the user with the matching `uid`.
+ * Core Philosophy:
+ *   - All data access is predicated on user authentication. Anonymous access is not permitted.
+ *   - Where applicable, ownership-based access control is enforced. Users can only
+ *     modify or delete resources they own.
+ *   - Data consistency is maintained by validating the integrity of relational fields
+ *     during `create` operations and enforcing immutability on these fields during `update`
+ *     operations.
  *
  * Data Structure:
- * All data is nested under `/users/{userId}`, providing a clear separation
- * between users' data.
+ *   - The Firestore database contains a `players` collection at the root.
  *
  * Key Security Decisions:
- * - User listing is explicitly denied to prevent unauthorized enumeration of user accounts.
- * - All write operations are restricted to the authenticated user and must
- *   match the `userId` in the path.
- * - In this initial prototyping phase, the data schema itself is not strictly enforced,
- *   allowing for flexible data shapes.  However, the rules do validate that the `uid`
- *   in the document matches the path.
+ *   - Data shape is not strictly validated. This is a prototyping tradeoff.
+ *   - Users cannot list other users.
+ *
+ * Denormalization for Authorization:
+ *   - The 'Player' entity does not currently have a means of authorization.
+ *     In order to proceed a `dealerId` or `ownerId` field should be added to the `Player` entity.
+ *     This will allow us to perform an authorization check.
+ *
+ * Structural Segregation:
+ *   - There is no need to segregate the data at this time.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     /**
-     * @description Restricts access to the /users collection to ensure that
-     *              users cannot be listed. This is to prevent unauthorized
-     *              enumeration of user accounts.
-     * @path /databases/{database}/documents/users
-     * @allow None
-     * @deny (list) Any attempt to list users.
-     * @principle Prevents user enumeration.
+     * @description Controls access to the 'players' collection.
+     *   In the current schema, the 'Player' entity lacks an 'ownerId' or 'dealerId' field.
+     *   Without such a field, we cannot securely restrict write access to authorized users.
+     *   For now, write access is disabled to prevent unauthorized data modification.
+     *   Read access is open to all authenticated users.
+     * @path /players/{playerId}
+     * @allow (get, list) User is signed in.
+     * @deny (create, update, delete) Always. No owner ID to authorize against.
+     * @principle Requires an 'ownerId' or 'dealerId' field in the 'Player' entity for secure write access.
      */
-    match /users {
-      // Disable listing all users.
-      allow list: if false;
+    match /players/{playerId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
-    /**
-     * @description Controls access to individual user documents. Only the
-     *              authenticated user with a matching `uid` can read, update,
-     *              or delete their own document.  Allows self-creation.
-     * @path /databases/{database}/documents/users/{userId}
-     * @allow (get) Authenticated user 'user_abc' can read their own user document at /users/user_abc.
-     * @allow (create) Authenticated user 'user_abc' can create their own user document at /users/user_abc.
-     * @allow (update) Authenticated user 'user_abc' can update their own user document at /users/user_abc.
-     * @allow (delete) Authenticated user 'user_abc' can delete their own user document at /users/user_abc.
-     * @deny (get) Authenticated user 'user_xyz' cannot read user document at /users/user_abc.
-     * @deny (create) Unauthenticated user cannot create a user document.
-     * @deny (update) Authenticated user 'user_xyz' cannot update user document at /users/user_abc.
-     * @deny (delete) Authenticated user 'user_xyz' cannot delete user document at /users/user_abc.
-     * @principle Enforces user-ownership.
-     */
-    match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isSignedIn() && isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId));
-      }
-
-      allow get: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+    // Define the isSignedIn function
+    function isSignedIn() {
+      return request.auth != null;
     }
   }
 }

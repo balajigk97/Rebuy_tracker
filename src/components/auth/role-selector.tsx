@@ -23,6 +23,14 @@ export function RoleSelector() {
 
   const handleDealerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) {
+        toast({
+            title: "Authentication Error",
+            description: "Authentication service is not available. Please try again later.",
+            variant: "destructive",
+        });
+        return;
+    }
     if (!dealerEmail || !dealerPassword) return;
     setIsLoading(true);
     try {
@@ -46,6 +54,10 @@ export function RoleSelector() {
       router.push(`/dashboard?role=player&name=${encodeURIComponent(playerName.trim())}`);
     }
   };
+  
+  const handleDealerClick = () => {
+    router.push('/dashboard?role=dealer');
+  };
 
   return (
     <Tabs defaultValue="player" className="w-full">
@@ -53,7 +65,7 @@ export function RoleSelector() {
         <TabsTrigger value="player" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
           <User className="mr-2 h-4 w-4" /> Player
         </TabsTrigger>
-        <TabsTrigger value="dealer" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+        <TabsTrigger value="dealer" onClick={handleDealerClick} className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
           <UserCog className="mr-2 h-4 w-4" /> Dealer
         </TabsTrigger>
       </TabsList>
@@ -76,35 +88,7 @@ export function RoleSelector() {
         </form>
       </TabsContent>
       <TabsContent value="dealer" className="mt-4">
-        <form onSubmit={handleDealerLogin} className="space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor="email" className="text-primary-foreground">Email</Label>
-                <Input
-                id="email"
-                type="email"
-                placeholder="dealer@example.com"
-                value={dealerEmail}
-                onChange={(e) => setDealerEmail(e.target.value)}
-                required
-                className="bg-background/80 text-foreground"
-                />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="password" className="text-primary-foreground">Password</Label>
-                <Input
-                id="password"
-                type="password"
-                placeholder="********"
-                value={dealerPassword}
-                onChange={(e) => setDealerPassword(e.target.value)}
-                required
-                className="bg-background/80 text-foreground"
-                />
-            </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || !dealerEmail || !dealerPassword}>
-                {isLoading ? 'Signing In...' : 'Sign In as Dealer'}
-            </Button>
-        </form>
+         <p className="text-center text-primary-foreground/80">You will be redirected to log in as the dealer.</p>
       </TabsContent>
     </Tabs>
   );

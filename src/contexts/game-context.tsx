@@ -10,7 +10,7 @@ import {
 } from 'react';
 import type { Player } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import {
   addDocumentNonBlocking,
   updateDocumentNonBlocking,
@@ -34,16 +34,23 @@ const PLAYERS_COLLECTION = 'players';
 export function GameProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
 
+  // Only create the query if the user is logged in.
   const playersColRef = useMemoFirebase(
-    () => collection(firestore, PLAYERS_COLLECTION),
-    [firestore]
+    () => (user ? collection(firestore, PLAYERS_COLLECTION) : null),
+    [firestore, user]
   );
   
-  const { data: players = [], isLoading } = useCollection<Player>(playersColRef);
+  const { data: players = [], isLoading: isCollectionLoading } = useCollection<Player>(playersColRef);
+
+  // The overall loading state depends on both user auth and collection loading.
+  const isLoading = isUserLoading || (!!playersColref && isCollectionLoading);
 
   const addPlayer = useCallback(
     (name: string) => {
+      if (!playersColRef) return; // Don't do anything if not logged in
+
       const existingPlayer = players.find(
         (p) => p.name.toLowerCase() === name.toLowerCase()
       );
@@ -75,7 +82,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const addRebuy = useCallback(
     (playerId: string) => {
       const player = players.find((p) => p.id === playerId);
-      if (!player) return;
+      if (!player || !firestore) return;
 
       const playerDocRef = doc(firestore, PLAYERS_COLLECTION, playerId);
       updateDocumentNonBlocking(playerDocRef, { rebuys: player.rebuys + 1 });
@@ -91,7 +98,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const removeRebuy = useCallback(
     (playerId: string) => {
       const player = players.find((p) => p.id === playerId);
-      if (!player) return;
+      if (!player || !firestore) return;
       
       if (player.rebuys <= 1) {
         toast({
@@ -122,6 +129,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const updateBlackCoins = useCallback((playerId: string, count: number) => {
+    if (!firestore) return;
     const validCount = count >= 0 ? count : 0;
     const playerDocRef = doc(firestore, PLAYERS_COLLECTION, playerId);
     updateDocumentNonBlocking(playerDocRef, { blackCoins: validCount });

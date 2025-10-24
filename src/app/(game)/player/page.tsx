@@ -12,6 +12,8 @@ function PlayerPageContent() {
   const { addPlayer, getPlayerByName, isLoading } = useGame();
 
   useEffect(() => {
+    // Only attempt to add a player if loading is complete, a name exists,
+    // and the player is not already in the game.
     if (!isLoading && name && !getPlayerByName(name)) {
       addPlayer(name);
     }

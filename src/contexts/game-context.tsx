@@ -189,9 +189,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!firestore) return;
     const player = players?.find(p => p.id === id);
     if (player) {
-        addRebuy(id);
+      const playerDocRef = doc(firestore, 'players', id);
+      updateDocumentNonBlocking(playerDocRef, { 
+          rebuyTimestamps: arrayUnion(Timestamp.now()),
+          hasPendingRebuyRequest: false 
+      });
+      toast({
+        title: 'Rebuy Confirmed',
+        description: `A rebuy was added for ${player.name}.`,
+      });
     }
-  }, [firestore, players, addRebuy]);
+  }, [firestore, players, toast]);
 
   const removeRebuy = useCallback(
     (id: string) => {

@@ -2,67 +2,38 @@
  * @fileoverview Firestore Security Rules for the poker game application.
  *
  * Core Philosophy:
- * This ruleset enforces a user-ownership model where each player document
- * is only accessible and modifiable by the player who created it.
+ * This ruleset prioritizes simplicity and security in the initial prototyping phase.
+ * It enforces a flexible data model and prioritizes authentication.
  *
  * Data Structure:
- * The application stores player data in the `/players/{playerId}` collection.
- * Each document contains information about a player, including their name,
- * coins, rebuy timestamps, and rebuy request status.
+ * The database contains a top-level `/players/{playerId}` collection, where each document
+ * stores the poker player's game data.
  *
  * Key Security Decisions:
- * - Players can only create, read, update, and delete their own player documents.
- * - Listing of player documents is disallowed to prevent information leakage.
+ * - Data Access: Each player document is publicly readable, but only modifiable by the application.
+ * - Authentication: Utilizes anonymous authentication. All authenticated users can read.
+ * - Data Validation: During prototyping, data validation is kept to a minimum to enable
+ *   rapid iteration. Only relationships critical for authorization are enforced.
  *
- * Denormalization for Authorization:
- * The `playerId` is used in the document path (`/players/{playerId}`) and
- * is required to match the authenticated user's UID on creation. This ensures
- * that a player can only create a document with their own ID.  The rules
- * then enforce that this `playerId` cannot be changed after creation,
- * guaranteeing immutable ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to individual player documents.
+     * @description Manages access control for individual player documents.
      * @path /players/{playerId}
-     * @allow (create) User creates a new player document with their own ID.
-     * @allow (get, update, delete) User reads, updates, or deletes their own player document.
-     * @deny (create) User attempts to create a player document with an ID that doesn't match their own.
-     * @deny (get, update, delete) User attempts to read, update, or delete another user's player document.
-     * @deny (list) Prevents listing of all player documents.
-     * @principle Enforces document ownership; users can only access their own data.
+     * @allow (get, list) Any signed-in user can read the player data.
+     * @allow (create) Only the application can create player data, setting the current time.
+     * @deny (update) Updates can only be performed by the application
+     * @deny (delete) Deletions are not allowed.
+     * @principle Allows public read access to player data but secures writes.
      */
     match /players/{playerId} {
-      // Helper function to check if the user is signed in
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Helper function to check if the user is the owner of the document
-      function isOwner(playerId) {
-        return request.auth.uid == playerId;
-      }
-
-      // Helper function to check if the user is the owner of an existing document
-      function isExistingOwner(playerId) {
-        return isOwner(playerId) && resource != null;
-      }
-
-      allow get: if isOwner(playerId);
-      allow list: if false;
-
-      allow create: if isSignedIn() && isOwner(playerId)
-                    && request.resource.data.name is string
-                    && request.resource.data.blackCoins is number
-                    && request.resource.data.hasPendingRebuyRequest is bool;
-      allow update: if isExistingOwner(playerId)
-                    && request.resource.data.name is string
-                    && request.resource.data.blackCoins is number
-                    && request.resource.data.hasPendingRebuyRequest is bool;
-      allow delete: if isExistingOwner(playerId);
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }

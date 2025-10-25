@@ -1,7 +1,7 @@
 'use client';
 import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect } from 'react';
 import { useFirestore, useCollection, useAuth, initiateAnonymousSignIn, useUser as useFirebaseUser } from '@/firebase';
-import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc, where } from 'firebase/firestore';
+import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc, where, CollectionReference } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -37,9 +37,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [auth, user, isAuthLoading]);
 
   const playersColRef = useMemo(() => {
-    // Wait for an authenticated user before creating the collection ref
+    // IMPORTANT: Wait for an authenticated user before creating the collection ref
+    // This prevents queries from being made by an unauthenticated client.
     if (!firestore || !user) return null;
-    return collection(firestore, 'players');
+    return collection(firestore, 'players') as CollectionReference<Omit<Player, 'id' | 'rebuys'>>;
   }, [firestore, user]);
 
   const { data: playersFromHook, isLoading: isPlayersLoading } = useCollection<Omit<Player, 'rebuys'>>(playersColRef);
@@ -71,7 +72,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
       const now = Timestamp.now();
-      const newPlayer: Omit<Player, 'id' | 'rebuys' | 'createdAt'> & { createdAt: Timestamp } = {
+      const newPlayer: Omit<Player, 'id' | 'rebuys'> = {
         name,
         rebuyTimestamps: [now],
         blackCoins: 0,
@@ -103,7 +104,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     if (querySnapshot.empty) {
         const now = Timestamp.now();
-        const newPlayer: Omit<Player, 'id'| 'rebuys' | 'createdAt'> & { createdAt: Timestamp } = {
+        const newPlayer: Omit<Player, 'id'| 'rebuys'> = {
             name,
             rebuyTimestamps: [now],
             blackCoins: 0,
@@ -293,7 +294,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       players: players || [],
-      isLoading: isAuthLoading || isPlayersLoading || !user,
+      // Loading is true if auth is loading OR if players are loading.
+      // The !user check ensures we show loading until we have an authenticated session.
+      isLoading: isAuthLoading || (!!user && isPlayersLoading) || !user,
       addPlayer,
       findOrCreatePlayer,
       deletePlayer,

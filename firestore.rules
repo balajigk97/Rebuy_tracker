@@ -2,45 +2,51 @@
  * @fileoverview Firestore Security Rules for the poker game application.
  *
  * Core Philosophy:
- * This ruleset implements a strict user-ownership model for player data. Each player can only read and write their own data.
+ * This ruleset enforces a user-ownership model where each player document
+ * is only accessible and modifiable by the player who created it.
  *
  * Data Structure:
- * All player data is stored in the `/players/{playerId}` collection.
+ * The application stores player data in the `/players/{playerId}` collection.
+ * Each document contains information about a player, including their name,
+ * coins, rebuy timestamps, and rebuy request status.
  *
  * Key Security Decisions:
- * - Players can only access their own player document.
- * - Players can create their own player document.
- * - Listing of player documents is disallowed.
+ * - Players can only create, read, update, and delete their own player documents.
+ * - Listing of player documents is disallowed to prevent information leakage.
  *
  * Denormalization for Authorization:
- *  - The `playerId` is used as the document ID and MUST match the authenticated user's UID. This prevents unauthorized creation or modification of player documents.
+ * The `playerId` is used in the document path (`/players/{playerId}`) and
+ * is required to match the authenticated user's UID on creation. This ensures
+ * that a player can only create a document with their own ID.  The rules
+ * then enforce that this `playerId` cannot be changed after creation,
+ * guaranteeing immutable ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access to individual player documents.
+     * @description Controls access to individual player documents.
      * @path /players/{playerId}
-     * @allow (create) - An anonymous user can create their own player document if the playerId matches their auth.uid.
-     * @allow (get) - An anonymous user can read their own player document if the playerId matches their auth.uid.
-     * @allow (update) - An anonymous user can update their own player document if the playerId matches their auth.uid and the document exists.
-     * @allow (delete) - An anonymous user can delete their own player document if the playerId matches their auth.uid and the document exists.
-     * @deny (list) - Listing all player documents is not allowed.
-     * @deny (create) - An anonymous user cannot create a player document where the playerId does not match their auth.uid.
-     * @deny (update) - An anonymous user cannot update a player document where the playerId does not match their auth.uid or the document does not exist.
-     * @deny (delete) - An anonymous user cannot delete a player document where the playerId does not match their auth.uid or the document does not exist.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User creates a new player document with their own ID.
+     * @allow (get, update, delete) User reads, updates, or deletes their own player document.
+     * @deny (create) User attempts to create a player document with an ID that doesn't match their own.
+     * @deny (get, update, delete) User attempts to read, update, or delete another user's player document.
+     * @deny (list) Prevents listing of all player documents.
+     * @principle Enforces document ownership; users can only access their own data.
      */
     match /players/{playerId} {
+      // Helper function to check if the user is signed in
       function isSignedIn() {
         return request.auth != null;
       }
 
+      // Helper function to check if the user is the owner of the document
       function isOwner(playerId) {
-        return isSignedIn() && request.auth.uid == playerId;
+        return request.auth.uid == playerId;
       }
 
+      // Helper function to check if the user is the owner of an existing document
       function isExistingOwner(playerId) {
         return isOwner(playerId) && resource != null;
       }
@@ -48,13 +54,14 @@ service cloud.firestore {
       allow get: if isOwner(playerId);
       allow list: if false;
 
-      allow create: if isOwner(playerId) && request.resource.data.name is string
-      && request.resource.data.blackCoins is number
-      && request.resource.data.createdAt is map
-      && request.resource.data.rebuyTimestamps is list
-      && request.resource.data.hasPendingRebuyRequest is bool;
-
-      allow update: if isExistingOwner(playerId);
+      allow create: if isSignedIn() && isOwner(playerId)
+                    && request.resource.data.name is string
+                    && request.resource.data.blackCoins is number
+                    && request.resource.data.hasPendingRebuyRequest is bool;
+      allow update: if isExistingOwner(playerId)
+                    && request.resource.data.name is string
+                    && request.resource.data.blackCoins is number
+                    && request.resource.data.hasPendingRebuyRequest is bool;
       allow delete: if isExistingOwner(playerId);
     }
   }

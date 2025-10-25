@@ -6,8 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { PlayerCountToast } from '@/components/dashboard/player-count-toast';
-
 
 export interface GameContextType {
   players: Player[];
@@ -31,7 +29,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
-  const [showPlayerCount, setShowPlayerCount] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -334,7 +331,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   return (
     <GameContext.Provider value={value}>
         {children}
-        {showPlayerCount && <PlayerCountToast onDismiss={() => setShowPlayerCount(false)} />}
     </GameContext.Provider>
   );
 }

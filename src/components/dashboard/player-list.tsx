@@ -93,8 +93,13 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
 
   const sortedPlayers = useMemo(() => {
     // Memoizing the sorted list is crucial to prevent re-render issues with real-time data
+    if (isDealer) {
+      // For the dealer, sort by creation time to keep the list static
+      return [...players].sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+    }
+    // For players, sort by rebuys to show standings
     return [...players].sort((a, b) => (b.rebuys ?? 0) - (a.rebuys ?? 0));
-  }, [players]);
+  }, [players, isDealer]);
 
   if (isLoading) {
     return <PlayerListSkeleton />;

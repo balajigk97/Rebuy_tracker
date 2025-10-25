@@ -142,7 +142,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         toast({
           title: 'Player Removed',
           description: `${player.name} has been removed from the game.`,
-          variant: 'destructive',
         });
       }
     },

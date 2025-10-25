@@ -270,11 +270,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 requestResourceData: updateData,
             }));
         });
-        toast({
-          title: 'Rebuy Removed',
-          description: `Removed the last rebuy for ${player.name}.`,
-          variant: 'destructive',
-        });
       }
     },
     [firestore, players, toast]

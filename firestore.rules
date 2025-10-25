@@ -1,53 +1,57 @@
 /**
- * @description This ruleset enforces a strict ownership model for player data. Players can only
- *              read and write their own player documents.
- * @dataStructure All player data is stored in the `/players/{playerId}` collection.
- * @keySecurityDecisions
- *   - Players can only modify their own documents.
- *   - Listing all players is disallowed for privacy.
- *   - Only authenticated users (anonymous in this case) can create player documents.
- *   - A player must exist before an update or delete operation.
+ * @fileoverview Firestore Security Rules for the poker game application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a user-ownership model, where each player can only
+ * access their own player document. This is enforced by matching the
+ * `playerId` path parameter with the authenticated user's UID.
+ *
+ * Data Structure:
+ * The Firestore database contains a single collection, `players`, where each document
+ * represents a player in the game. The document ID is the same as the player's UID.
+ *
+ * Key Security Decisions:
+ * - Players can only read and write their own player documents.
+ * - Listing of all players is disallowed to protect privacy.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces access control for individual player documents.
+     * @description Controls access to player documents. Only the player can read or write their own document.
      * @path /players/{playerId}
-     * @allow (get) Allow anyone to read a player document.
-     * @allow (create) Allow a user to create a player document if the playerId matches their auth UID.
-     * @allow (update) Allow a user to update their own player document if it exists.
-     * @allow (delete) Allow a user to delete their own player document if it exists.
-     * @deny (create) Deny if the playerId does not match the user's auth UID.
-     * @deny (update) Deny if the player document does not exist.
-     * @deny (delete) Deny if the player document does not exist.
-     * @deny (list) Deny listing all player documents.
-     * @principle Enforces document ownership and validates relational integrity between the path and the document's internal fields.
+     * @allow (get) Signed-in user can read their own player document.
+     *   Request: auth.uid = "user123", path = "/players/user123"
+     * @allow (create) Signed-in user can create their own player document.
+     *   Request: auth.uid = "user123", path = "/players/user123"
+     * @allow (update) Signed-in user can update their own player document.
+     *   Request: auth.uid = "user123", path = "/players/user123"
+     * @allow (delete) Signed-in user can delete their own player document.
+     *   Request: auth.uid = "user123", path = "/players/user123"
+     * @deny (get) Signed-in user cannot read another player's document.
+     *   Request: auth.uid = "user123", path = "/players/user456"
+     * @deny (create) Signed-in user cannot create another player's document.
+     *   Request: auth.uid = "user123", path = "/players/user456"
+     * @deny (update) Signed-in user cannot update another player's document.
+     *   Request: auth.uid = "user123", path = "/players/user456"
+     * @deny (delete) Signed-in user cannot delete another player's document.
+     *   Request: auth.uid = "user123", path = "/players/user456"
+     * @principle Enforces document ownership for all operations.
      */
     match /players/{playerId} {
-      // Helper function to check if the user is signed in.
-      function isSignedIn() {
-        return request.auth != null;
+      function isOwner(playerId) {
+        return request.auth != null && request.auth.uid == playerId;
       }
 
-      // Helper function to check if the user is the owner of the document.
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
+      function isExistingOwner(playerId) {
+        return isOwner(playerId) && resource != null;
       }
 
-      // Helper function to check if the user is the owner of the document and it exists.
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if true;
+      allow get: if isOwner(playerId);
       allow list: if false;
-
       allow create: if isOwner(playerId);
-
       allow update: if isExistingOwner(playerId);
-
       allow delete: if isExistingOwner(playerId);
     }
   }

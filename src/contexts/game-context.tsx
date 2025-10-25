@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect, useState } from 'react';
-import { useFirestore, useCollection, useAuth, initiateAnonymousSignIn } from '@/firebase';
+import { useFirestore, useCollection, useAuth, initiateAnonymousSignIn, useUser as useFirebaseUser } from '@/firebase';
 import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
@@ -27,20 +27,20 @@ export const GameContext = createContext<GameContextType | undefined>(undefined)
 export function GameProvider({ children }: { children: ReactNode }) {
   const firestore = useFirestore();
   const auth = useAuth();
+  const { user, isUserLoading: isAuthLoading } = useFirebaseUser();
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
-
+  
   useEffect(() => {
-    setIsClient(true);
-    if (auth) {
+    if (auth && !user && !isAuthLoading) {
         initiateAnonymousSignIn(auth);
     }
-  }, [auth]);
+  }, [auth, user, isAuthLoading]);
 
   const playersColRef = useMemo(() => {
-    if (!firestore || !isClient) return null;
+    // Wait for an authenticated user before creating the collection ref
+    if (!firestore || !user) return null;
     return collection(firestore, 'players');
-  }, [firestore, isClient]);
+  }, [firestore, user]);
 
   const { data: playersFromHook, isLoading: isPlayersLoading } = useCollection<Omit<Player, 'rebuys'>>(playersColRef);
   
@@ -293,7 +293,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       players: players || [],
-      isLoading: isPlayersLoading || !isClient,
+      isLoading: isAuthLoading || isPlayersLoading,
       addPlayer,
       findOrCreatePlayer,
       deletePlayer,
@@ -307,8 +307,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }),
     [
       players,
+      isAuthLoading,
       isPlayersLoading,
-      isClient,
       addPlayer,
       findOrCreatePlayer,
       deletePlayer,
@@ -336,3 +336,5 @@ export function useGame() {
   }
   return context;
 }
+
+    

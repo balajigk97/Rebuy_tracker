@@ -1,44 +1,50 @@
 /**
  * @file Firestore Security Rules
- * @core_philosophy This ruleset enforces a user-ownership model for player data. Each player can only read, update, or delete their own player document.
- * @data_structure All player data is stored under the `/players/{playerId}` path.
- * @key_security_decisions Players can only access their own documents, and cannot list all players.
- * @denormalization For simplicity and performance, authorization relies on the `playerId` path parameter matching the authenticated user's UID. No data denormalization is required in this simple example.
- * @structural_segregation There is no segregation of public vs. private data. All player data is considered private.
+ * @description This ruleset enforces a player-ownership model, where each player can only read and write their own data.
+ *
+ * Data Structure:
+ * - /players/{playerId}: Stores player information. The {playerId} MUST match the authenticated user's UID.
+ *
+ * Key Security Decisions:
+ * - Players can only manage their own player document.
+ * - Data shape is not strictly enforced during the prototyping phase.
+ * - No user listing is allowed.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to player documents.
+     * @description Manages access to individual player documents.
      * @path /players/{playerId}
-     * @allow (create) - A player can create their own document if the `playerId` matches their `auth.uid`.
-     * @allow (get, update, delete) - A player can read, update, or delete their own document if the `playerId` matches their `auth.uid`.
-     * @deny (create) - A player cannot create a document with a `playerId` that does not match their `auth.uid`.
-     * @deny (get, update, delete) - A player cannot read, update, or delete another player's document.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - A user can create their own player document if the {playerId} matches their UID.
+     * @allow (get) - A user can read their own player document if the {playerId} matches their UID.
+     * @allow (update) - A user can update their own player document if the {playerId} matches their UID and the document exists.
+     * @allow (delete) - A user can delete their own player document if the {playerId} matches their UID and the document exists.
+     * @deny (create) - A user cannot create a player document for another user (mismatched {playerId}).
+     * @deny (get) - A user cannot read another user's player document (mismatched {playerId}).
+     * @deny (update) - A user cannot update another user's player document (mismatched {playerId}).
+     * @deny (delete) - A user cannot delete another user's player document (mismatched {playerId}).
+     * @principle Enforces document ownership for writes.
      */
     match /players/{playerId} {
-      // Helpers
       function isSignedIn() {
         return request.auth != null;
       }
 
       function isOwner(playerId) {
-        return isSignedIn() && request.auth.uid == playerId;
+        return request.auth.uid == playerId;
       }
 
       function isExistingOwner(playerId) {
-        return isOwner(playerId) && resource != null;
+        return isOwner(playerId) && exists(/databases/$(database)/documents/players/$(playerId));
       }
 
-      // Permissions
-      allow get: if isOwner(playerId);
-      allow list: if false; // Players cannot list all player documents.
-      allow create: if isOwner(playerId);
-      allow update: if isExistingOwner(playerId);
-      allow delete: if isExistingOwner(playerId);
+      allow get: if isSignedIn() && isOwner(playerId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(playerId);
+      allow update: if isSignedIn() && isExistingOwner(playerId);
+      allow delete: if isSignedIn() && isExistingOwner(playerId);
     }
   }
 }

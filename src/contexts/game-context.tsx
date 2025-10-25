@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect, useState } from 'react';
+import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect } from 'react';
 import { useFirestore, useCollection, useAuth, initiateAnonymousSignIn, useUser as useFirebaseUser } from '@/firebase';
 import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -293,7 +293,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       players: players || [],
-      isLoading: isAuthLoading || isPlayersLoading,
+      isLoading: isAuthLoading || isPlayersLoading || !user,
       addPlayer,
       findOrCreatePlayer,
       deletePlayer,
@@ -309,6 +309,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       players,
       isAuthLoading,
       isPlayersLoading,
+      user,
       addPlayer,
       findOrCreatePlayer,
       deletePlayer,
@@ -336,5 +337,3 @@ export function useGame() {
   }
   return context;
 }
-
-    

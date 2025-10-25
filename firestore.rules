@@ -1,25 +1,40 @@
 /**
- * @file Firestore Security Rules for Poker Game
- * @corePhilosophy This ruleset enforces a strict user-ownership model for player data.
- * @dataStructure All player data is stored under the /players/{playerId} path.
- * @keySecurityDecisions Only the player can read or write their own data. No listing of all players is allowed. Data shape validation is relaxed for prototyping.
+ * @fileoverview Firestore Security Rules for the poker game application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a user-ownership model where each player document is owned by the anonymous user who created it.
+ *
+ * Data Structure:
+ * All player data is stored in the `/players/{playerId}` collection.
+ *
+ * Key Security Decisions:
+ * - Players can only create, read, update, or delete their own player document.
+ * - Listing of players is disallowed for privacy reasons.
+ *
+ * Denormalization for Authorization:
+ * - The player ID is used as the document ID, enforcing a one-to-one relationship between the anonymous user and the player document. This allows direct ownership checks without additional reads.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows a player to read, create, update, and delete their own player data.
+     * @description Manages access to player documents.
      * @path /players/{playerId}
-     * @allow (get, create, update, delete) if request.auth.uid == playerId
-     * @deny (get, create, update, delete) if request.auth.uid != playerId
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with UID 'user_abc' can create a player document if playerId == user_abc.
+     * @deny (create) User with UID 'user_abc' cannot create a player document if playerId != user_abc.
+     * @allow (get) User with UID 'user_abc' can read player document if playerId == user_abc.
+     * @deny (get) User with UID 'user_def' cannot read player document if playerId == user_abc.
+     * @allow (update) User with UID 'user_abc' can update player document if playerId == user_abc.
+     * @deny (update) User with UID 'user_def' cannot update player document if playerId == user_abc.
+     * @allow (delete) User with UID 'user_abc' can delete player document if playerId == user_abc.
+     * @deny (delete) User with UID 'user_def' cannot delete player document if playerId == user_abc.
+     * @principle Enforces document ownership for writes.
      */
     match /players/{playerId} {
       allow get: if isSignedIn() && isOwner(playerId);
-      allow list: if false; // Listing all players is disallowed
-
-      allow create: if isSignedIn() && request.auth.uid == playerId;
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(playerId);
       allow update: if isSignedIn() && isExistingOwner(playerId);
       allow delete: if isSignedIn() && isExistingOwner(playerId);
     }
@@ -29,12 +44,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(playerId) {
-      return request.auth.uid == playerId;
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    function isExistingOwner(playerId) {
-      return isSignedIn() && isOwner(playerId) && resource != null;
+    function isExistingOwner(userId) {
+      return isSignedIn() && isOwner(userId) && resource != null;
     }
   }
 }

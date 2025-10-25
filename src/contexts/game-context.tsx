@@ -294,9 +294,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       players: players || [],
-      // Loading is true if auth is loading OR if players are loading.
-      // The !user check ensures we show loading until we have an authenticated session.
-      isLoading: isAuthLoading || (!!user && isPlayersLoading) || !user,
+      // Loading is true if auth is loading OR if players are loading and we don't have a user yet.
+      isLoading: isAuthLoading || (!user && isPlayersLoading),
       addPlayer,
       findOrCreatePlayer,
       deletePlayer,
@@ -340,3 +339,5 @@ export function useGame() {
   }
   return context;
 }
+
+    

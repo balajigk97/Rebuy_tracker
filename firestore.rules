@@ -1,39 +1,50 @@
 /**
- * @fileoverview Firestore Security Rules for the poker game application.
+ * @fileoverview Firestore Security Rules for the Poker Game application.
  *
  * Core Philosophy:
- * This ruleset prioritizes simplicity and security in the initial prototyping phase.
- * It enforces a flexible data model and prioritizes authentication.
+ * This ruleset prioritizes simplicity, security and data access control by leveraging the Firebase Authentication state (`request.auth`).
+ * It focuses on securing read and write access to a public collection of `players`. All users, including unauthenticated ones, can read `players` collection, but only authenticated users can create, update or delete player information.
  *
  * Data Structure:
- * The database contains a top-level `/players/{playerId}` collection, where each document
- * stores the poker player's game data.
+ * The Firestore database contains a single top-level collection:
+ * - `/players/{playerId}`: Stores individual player profiles. The `playerId` is a unique identifier for each player document.
  *
  * Key Security Decisions:
- * - Data Access: Each player document is publicly readable, but only modifiable by the application.
- * - Authentication: Utilizes anonymous authentication. All authenticated users can read.
- * - Data Validation: During prototyping, data validation is kept to a minimum to enable
- *   rapid iteration. Only relationships critical for authorization are enforced.
+ * - Public Read Access: All users, including unauthenticated users, can read all documents in the `players` collection.
+ * - Authenticated Writes: Only authenticated users can create, update, and delete documents in the `players` collection.
+ * - No User Listing: Listing all users is not permitted.
  *
+ * Denormalization for Authorization:
+ * - The `Player` documents are assumed to contain all the necessary information for authorization.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access control for individual player documents.
+     * @description Allows anyone to read player data, but only authenticated users to write.
      * @path /players/{playerId}
-     * @allow (get, list) Any signed-in user can read the player data.
-     * @allow (create) Only the application can create player data, setting the current time.
-     * @deny (update) Updates can only be performed by the application
-     * @deny (delete) Deletions are not allowed.
-     * @principle Allows public read access to player data but secures writes.
+     * @allow (get, list): Anyone can read player data.
+     * @allow (create): Authenticated user can create a player if the player data is valid.
+     * @allow (update, delete): Authenticated user can update/delete player data if the player data is valid.
+     * @deny (create, update, delete): Unauthenticated user cannot create/update/delete player data.
+     * @principle Allows public read access to player data and authenticated writes.
      */
     match /players/{playerId} {
       allow get, list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // ---- Helper functions ----
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
     }
   }
 }

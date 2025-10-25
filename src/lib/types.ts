@@ -10,9 +10,3 @@ export type Player = {
   rebuyTimestamps: Timestamp[];
   hasPendingRebuyRequest: boolean;
 };
-
-export type Log = {
-  id: string;
-  message: string;
-  createdAt: Timestamp;
-};

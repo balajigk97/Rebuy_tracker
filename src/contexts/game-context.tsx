@@ -2,23 +2,23 @@
 'use client';
 import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect, useState } from 'react';
 import { useFirestore, useCollection, useAuth, initiateAnonymousSignIn } from '@/firebase';
-import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
+import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch, getDocs, query } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { Log, Player } from '@/lib/types';
+import type { Player } from '@/lib/types';
 import {
   addDocumentNonBlocking,
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
+  setDocumentNonBlocking,
 } from '@/firebase/non-blocking-updates';
 
 export interface GameContextType {
   players: Player[];
-  logs: Log[];
   isLoading: boolean;
   addPlayer: (name: string) => void;
   findOrCreatePlayer: (name: string) => void;
   deletePlayer: (id: string) => void;
-  deleteAllPlayersAndLogs: () => void;
+  deleteAllPlayers: () => void;
   addRebuy: (id: string) => void;
   removeRebuy: (id: string) => void;
   updateBlackCoins: (id: string, count: number) => void;
@@ -46,15 +46,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!firestore || !isClient) return null;
     return collection(firestore, 'players');
   }, [firestore, isClient]);
-  
-  const logsColRef = useMemo(() => {
-    if (!firestore || !isClient) return null;
-    return collection(firestore, 'logs');
-  }, [firestore, isClient]);
 
   const { data: playersFromHook, isLoading: isPlayersLoading } = useCollection<Omit<Player, 'rebuys'>>(playersColRef);
-  const { data: logs, isLoading: isLogsLoading } = useCollection<Log>(logsColRef);
-
+  
   const players = useMemo(() => {
     return playersFromHook?.map(p => ({
         ...p,
@@ -62,14 +56,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     })) || [];
   }, [playersFromHook]);
 
-  const logAction = useCallback((message: string) => {
-    if (!logsColRef) return;
-    const newLog: Omit<Log, 'id'> = {
-        message,
-        createdAt: Timestamp.now(),
-    };
-    addDocumentNonBlocking(logsColRef, newLog);
-  }, [logsColRef]);
 
   const getPlayerByName = useCallback(
     (name: string) => {
@@ -98,13 +84,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         hasPendingRebuyRequest: false,
       };
       addDocumentNonBlocking(playersColRef, newPlayer);
-      logAction(`Player ${name} joined the game.`);
       toast({
         title: 'Player Added',
         description: `${name} has joined the game.`,
       });
     },
-    [firestore, playersColRef, getPlayerByName, toast, logAction]
+    [firestore, playersColRef, getPlayerByName, toast]
   );
   
   const findOrCreatePlayer = useCallback((name: string) => {
@@ -122,13 +107,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
             hasPendingRebuyRequest: false,
         };
         addDocumentNonBlocking(playersColRef, newPlayer);
-        logAction(`Player ${name} joined the game.`);
         console.log(`Player ${name} created.`);
     } else {
         console.log(`Player ${name} already exists.`);
     }
 
-  }, [firestore, playersColRef, isPlayersLoading, getPlayerByName, logAction]);
+  }, [firestore, playersColRef, isPlayersLoading, getPlayerByName]);
 
 
   const deletePlayer = useCallback(
@@ -138,7 +122,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const player = players?.find(p => p.id === id);
       deleteDocumentNonBlocking(playerDocRef);
       if (player) {
-        logAction(`Player ${player.name} was removed.`);
         toast({
           title: 'Player Removed',
           description: `${player.name} has been removed from the game.`,
@@ -146,33 +129,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [firestore, players, toast, logAction]
+    [firestore, players, toast]
   );
 
-  const deleteAllPlayersAndLogs = useCallback(async () => {
-    if (!firestore) return;
+  const deleteAllPlayers = useCallback(async () => {
+    if (!firestore || !playersColRef) return;
 
     const batch = writeBatch(firestore);
-
-    players.forEach(player => {
-        const playerDocRef = doc(firestore, 'players', player.id);
-        batch.delete(playerDocRef);
-    });
-
-    logs?.forEach(log => {
-        const logDocRef = doc(firestore, 'logs', log.id);
-        batch.delete(logDocRef);
-    });
+    const q = query(playersColRef);
+    const snapshot = await getDocs(q);
     
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
     await batch.commit();
 
-    logAction('Game has been reset.');
     toast({
         title: 'Game Reset',
-        description: 'All players and logs have been removed.',
+        description: 'All players have been removed.',
         variant: 'destructive',
     });
-  }, [firestore, players, logs, toast, logAction]);
+  }, [firestore, playersColRef, toast]);
+
 
   const addRebuy = useCallback(
     (id: string) => {
@@ -184,14 +163,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
             rebuyTimestamps: arrayUnion(Timestamp.now()),
             hasPendingRebuyRequest: false 
         });
-        logAction(`Re-buy approved for ${player.name}.`);
         toast({
-          title: 'Rebuy Added',
-          description: `Rebuy confirmed for ${player.name}.`,
+          title: 'Rebuy Confirmed',
+          description: `A rebuy was added for ${player.name}.`,
         });
       }
     },
-    [firestore, players, toast, logAction]
+    [firestore, players, toast]
   );
 
   const requestRebuy = useCallback((id: string) => {
@@ -200,13 +178,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (player) {
         const playerDocRef = doc(firestore, 'players', id);
         updateDocumentNonBlocking(playerDocRef, { hasPendingRebuyRequest: true });
-        logAction(`Re-buy requested by ${player.name}.`);
         toast({
             title: 'Request Sent',
-            description: 'Your rebuy request has been sent to the dealer.',
+            description: 'Your rebuy request has been sent to the dealer for approval.',
         });
     }
-  }, [firestore, toast, players, logAction]);
+  }, [firestore, toast, players]);
   
   const approveRebuy = useCallback((id: string) => {
     if (!firestore) return;
@@ -229,11 +206,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           });
           return;
         }
-        // To remove the last rebuy, we unfortunately have to provide the exact Timestamp object.
         const lastRebuy = player.rebuyTimestamps[player.rebuyTimestamps.length - 1];
         const playerDocRef = doc(firestore, 'players', id);
         updateDocumentNonBlocking(playerDocRef, { rebuyTimestamps: arrayRemove(lastRebuy) });
-        logAction(`Last re-buy removed for ${player.name}.`);
         toast({
           title: 'Rebuy Removed',
           description: `Removed the last rebuy for ${player.name}.`,
@@ -241,14 +216,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [firestore, players, toast, logAction]
+    [firestore, players, toast]
   );
 
   const updateBlackCoins = useCallback(
     (id: string, count: number) => {
       if (!firestore) return;
       const playerDocRef = doc(firestore, 'players', id);
-      updateDocumentNonBlocking(playerDocRef, { blackCoins: Math.max(0, count) });
+      setDocumentNonBlocking(playerDocRef, { blackCoins: Math.max(0, count) }, { merge: true });
     },
     [firestore]
   );
@@ -256,12 +231,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       players: players || [],
-      logs: logs || [],
-      isLoading: isPlayersLoading || isLogsLoading || !isClient,
+      isLoading: isPlayersLoading || !isClient,
       addPlayer,
       findOrCreatePlayer,
       deletePlayer,
-      deleteAllPlayersAndLogs,
+      deleteAllPlayers,
       addRebuy,
       removeRebuy,
       updateBlackCoins,
@@ -271,14 +245,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }),
     [
       players,
-      logs,
       isPlayersLoading,
-      isLogsLoading,
       isClient,
       addPlayer,
       findOrCreatePlayer,
       deletePlayer,
-      deleteAllPlayersAndLogs,
+      deleteAllPlayers,
       addRebuy,
       removeRebuy,
       updateBlackCoins,

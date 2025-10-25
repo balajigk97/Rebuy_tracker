@@ -107,9 +107,9 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
           <TableRow>
             <TableHead>Player</TableHead>
             <TableHead className="text-center">Buy-ins</TableHead>
+            {isDealer && <TableHead className="text-center">Actions</TableHead>}
             {isDealer && <TableHead className="text-center">#Black coins</TableHead>}
             {isDealer && <TableHead className="text-center">End Count</TableHead>}
-            {isDealer && <TableHead className="text-right">Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -136,24 +136,8 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                     <RebuyTooltip timestamps={player.rebuyTimestamps} />
                   </TableCell>
                   {isDealer && (
-                    <>
-                      <TableCell className="text-center">
-                        <Input
-                          type="number"
-                          className="w-20 mx-auto"
-                          value={player.blackCoins}
-                          onChange={(e) => updateBlackCoins(player.id, parseInt(e.target.value, 10) || 0)}
-                          min={0}
-                        />
-                      </TableCell>
-                      <TableCell className="text-center text-lg font-bold">
-                        {player.blackCoins - (player.rebuys ?? 0)}
-                      </TableCell>
-                    </>
-                  )}
-                  {isDealer && (
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-2">
                         {player.hasPendingRebuyRequest ? (
                             <Button
                                 size="sm"
@@ -161,8 +145,8 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                                 aria-label={`Approve re-buy for ${player.name}`}
                                 className="bg-green-600 hover:bg-green-700 text-white"
                             >
-                                <CheckCircle className="h-5 w-5 mr-2" />
-                                Approve
+                                <CheckCircle className="h-5 w-5 md:mr-2" />
+                                <span className="hidden md:inline">Approve</span>
                             </Button>
                         ) : (
                             <Button
@@ -201,6 +185,22 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                         </ConfirmationDialog>
                       </div>
                     </TableCell>
+                  )}
+                  {isDealer && (
+                    <>
+                      <TableCell className="text-center">
+                        <Input
+                          type="number"
+                          className="w-20 mx-auto"
+                          value={player.blackCoins}
+                          onChange={(e) => updateBlackCoins(player.id, parseInt(e.target.value, 10) || 0)}
+                          min={0}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center text-lg font-bold">
+                        {player.blackCoins - (player.rebuys ?? 0)}
+                      </TableCell>
+                    </>
                   )}
                 </TableRow>
               ))

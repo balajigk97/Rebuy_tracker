@@ -2,39 +2,37 @@
  * @fileoverview Firestore Security Rules for the poker game application.
  *
  * Core Philosophy:
- * This ruleset enforces a user-ownership model, where each player can only manage their own player document.
+ * This ruleset implements a strict user-ownership model for player data. Each player can only read and write their own data.
  *
  * Data Structure:
- * All player data is stored in the `/players/{playerId}` collection, where `{playerId}` is the unique ID of the player.
+ * All player data is stored in the `/players/{playerId}` collection.
  *
  * Key Security Decisions:
- * - Players can only create their own player document with their own ID.
- * - Players can only read, update, and delete their own player document.
- * - Listing the `/players` collection is disallowed to prevent unauthorized data access.
+ * - Players can only access their own player document.
+ * - Players can create their own player document.
+ * - Listing of player documents is disallowed.
  *
  * Denormalization for Authorization:
- * - The player ID is included in the document path (`/players/{playerId}`) and must match the authenticated user's UID. This enables efficient ownership checks without additional reads.
+ *  - The `playerId` is used as the document ID and MUST match the authenticated user's UID. This prevents unauthorized creation or modification of player documents.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to player documents.
+     * @description Manages access to individual player documents.
      * @path /players/{playerId}
-     * @allow (create) User with UID 'user_abc' can create a player document with ID 'user_abc'.
-     * @deny (create) User with UID 'user_abc' cannot create a player document with ID 'user_xyz'.
-     * @allow (get) User with UID 'user_abc' can get their own player document with ID 'user_abc'.
-     * @deny (get) User with UID 'user_abc' cannot get a player document with ID 'user_xyz'.
-     * @allow (update) User with UID 'user_abc' can update their own player document with ID 'user_abc'.
-     * @deny (update) User with UID 'user_abc' cannot update a player document with ID 'user_xyz'.
-     * @allow (delete) User with UID 'user_abc' can delete their own player document with ID 'user_abc'.
-     * @deny (delete) User with UID 'user_abc' cannot delete a player document with ID 'user_xyz'.
-     * @deny (list) No one can list all player documents.
-     * @principle Enforces document ownership for all operations on player documents.
+     * @allow (create) - An anonymous user can create their own player document if the playerId matches their auth.uid.
+     * @allow (get) - An anonymous user can read their own player document if the playerId matches their auth.uid.
+     * @allow (update) - An anonymous user can update their own player document if the playerId matches their auth.uid and the document exists.
+     * @allow (delete) - An anonymous user can delete their own player document if the playerId matches their auth.uid and the document exists.
+     * @deny (list) - Listing all player documents is not allowed.
+     * @deny (create) - An anonymous user cannot create a player document where the playerId does not match their auth.uid.
+     * @deny (update) - An anonymous user cannot update a player document where the playerId does not match their auth.uid or the document does not exist.
+     * @deny (delete) - An anonymous user cannot delete a player document where the playerId does not match their auth.uid or the document does not exist.
+     * @principle Enforces document ownership for writes.
      */
     match /players/{playerId} {
-      // Helpers
       function isSignedIn() {
         return request.auth != null;
       }
@@ -47,10 +45,15 @@ service cloud.firestore {
         return isOwner(playerId) && resource != null;
       }
 
-      // Permissions
       allow get: if isOwner(playerId);
       allow list: if false;
-      allow create: if isOwner(playerId);
+
+      allow create: if isOwner(playerId) && request.resource.data.name is string
+      && request.resource.data.blackCoins is number
+      && request.resource.data.createdAt is map
+      && request.resource.data.rebuyTimestamps is list
+      && request.resource.data.hasPendingRebuyRequest is bool;
+
       allow update: if isExistingOwner(playerId);
       allow delete: if isExistingOwner(playerId);
     }

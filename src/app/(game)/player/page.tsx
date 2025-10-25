@@ -18,13 +18,19 @@ function PlayerPageContent() {
     }
   }, [isLoading, name, findOrCreatePlayer]);
 
-  if (isLoading) {
+  if (isLoading && !getPlayerByName(name || '')) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Loading dashboard...</p>
+      <div className="flex-1 flex items-center justify-center text-center py-10">
+        <div>
+            <h2 className="text-2xl font-semibold">Joining game...</h2>
+            <p className="text-muted-foreground mt-2">
+                Your stats will appear here shortly.
+            </p>
+        </div>
       </div>
     );
   }
+
 
   if (!name) {
     return (

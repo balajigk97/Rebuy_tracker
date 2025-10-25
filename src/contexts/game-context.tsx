@@ -1,12 +1,12 @@
-
 'use client';
 import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect, useState } from 'react';
 import { useFirestore, useCollection, useAuth, initiateAnonymousSignIn } from '@/firebase';
-import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { PlayerCountToast } from '@/components/dashboard/player-count-toast';
 
 
 export interface GameContextType {
@@ -31,6 +31,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
+  const [showPlayerCount, setShowPlayerCount] = useState(true);
 
   useEffect(() => {
     setIsClient(true);
@@ -97,12 +98,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [firestore, playersColRef, getPlayerByName, toast]
   );
   
-  const findOrCreatePlayer = useCallback((name: string) => {
-    if (!firestore || !playersColRef || isPlayersLoading) return;
+  const findOrCreatePlayer = useCallback(async (name: string) => {
+    if (!firestore || !playersColRef) return;
     
-    const existingPlayer = getPlayerByName(name);
-    
-    if (!existingPlayer) {
+    const q = query(playersColRef, where("name", "==", name));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
         const now = Timestamp.now();
         const newPlayer: Omit<Player, 'id'| 'rebuys' | 'createdAt'> & { createdAt: Timestamp } = {
             name,
@@ -123,7 +125,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         console.log(`Player ${name} already exists.`);
     }
 
-  }, [firestore, playersColRef, isPlayersLoading, getPlayerByName]);
+  }, [firestore, playersColRef]);
 
 
   const deletePlayer = useCallback(
@@ -329,7 +331,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     ]
   );
 
-  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
+  return (
+    <GameContext.Provider value={value}>
+        {children}
+        {showPlayerCount && <PlayerCountToast onDismiss={() => setShowPlayerCount(false)} />}
+    </GameContext.Provider>
+  );
 }
 
 export function useGame() {

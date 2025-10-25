@@ -1,50 +1,58 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a player-ownership model, where each player can only read and write their own data.
+ * @fileoverview Firestore Security Rules for the poker game application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a user-ownership model, where each player can only manage their own player document.
  *
  * Data Structure:
- * - /players/{playerId}: Stores player information. The {playerId} MUST match the authenticated user's UID.
+ * All player data is stored in the `/players/{playerId}` collection, where `{playerId}` is the unique ID of the player.
  *
  * Key Security Decisions:
- * - Players can only manage their own player document.
- * - Data shape is not strictly enforced during the prototyping phase.
- * - No user listing is allowed.
+ * - Players can only create their own player document with their own ID.
+ * - Players can only read, update, and delete their own player document.
+ * - Listing the `/players` collection is disallowed to prevent unauthorized data access.
+ *
+ * Denormalization for Authorization:
+ * - The player ID is included in the document path (`/players/{playerId}`) and must match the authenticated user's UID. This enables efficient ownership checks without additional reads.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access to individual player documents.
+     * @description Controls access to player documents.
      * @path /players/{playerId}
-     * @allow (create) - A user can create their own player document if the {playerId} matches their UID.
-     * @allow (get) - A user can read their own player document if the {playerId} matches their UID.
-     * @allow (update) - A user can update their own player document if the {playerId} matches their UID and the document exists.
-     * @allow (delete) - A user can delete their own player document if the {playerId} matches their UID and the document exists.
-     * @deny (create) - A user cannot create a player document for another user (mismatched {playerId}).
-     * @deny (get) - A user cannot read another user's player document (mismatched {playerId}).
-     * @deny (update) - A user cannot update another user's player document (mismatched {playerId}).
-     * @deny (delete) - A user cannot delete another user's player document (mismatched {playerId}).
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with UID 'user_abc' can create a player document with ID 'user_abc'.
+     * @deny (create) User with UID 'user_abc' cannot create a player document with ID 'user_xyz'.
+     * @allow (get) User with UID 'user_abc' can get their own player document with ID 'user_abc'.
+     * @deny (get) User with UID 'user_abc' cannot get a player document with ID 'user_xyz'.
+     * @allow (update) User with UID 'user_abc' can update their own player document with ID 'user_abc'.
+     * @deny (update) User with UID 'user_abc' cannot update a player document with ID 'user_xyz'.
+     * @allow (delete) User with UID 'user_abc' can delete their own player document with ID 'user_abc'.
+     * @deny (delete) User with UID 'user_abc' cannot delete a player document with ID 'user_xyz'.
+     * @deny (list) No one can list all player documents.
+     * @principle Enforces document ownership for all operations on player documents.
      */
     match /players/{playerId} {
+      // Helpers
       function isSignedIn() {
         return request.auth != null;
       }
 
       function isOwner(playerId) {
-        return request.auth.uid == playerId;
+        return isSignedIn() && request.auth.uid == playerId;
       }
 
       function isExistingOwner(playerId) {
-        return isOwner(playerId) && exists(/databases/$(database)/documents/players/$(playerId));
+        return isOwner(playerId) && resource != null;
       }
 
-      allow get: if isSignedIn() && isOwner(playerId);
+      // Permissions
+      allow get: if isOwner(playerId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(playerId);
-      allow update: if isSignedIn() && isExistingOwner(playerId);
-      allow delete: if isSignedIn() && isExistingOwner(playerId);
+      allow create: if isOwner(playerId);
+      allow update: if isExistingOwner(playerId);
+      allow delete: if isExistingOwner(playerId);
     }
   }
 }

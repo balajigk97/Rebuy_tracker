@@ -1,5 +1,4 @@
-
-"use client";
+'use client';
 
 import { useGame } from "@/contexts/game-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,7 +58,7 @@ function PlayerViewSkeleton() {
 }
 
 export function PlayerView({ playerName }: PlayerViewProps) {
-  const { getPlayerByName, addRebuy, isLoading } = useGame();
+  const { getPlayerByName, requestRebuy, isLoading } = useGame();
   
   if (isLoading) {
     return <PlayerViewSkeleton />;
@@ -69,21 +68,19 @@ export function PlayerView({ playerName }: PlayerViewProps) {
 
   if (!player) {
     return (
-        <div className="flex-1 flex items-center justify-center text-center py-10">
-          <div>
-              <h2 className="text-2xl font-semibold">Joining game...</h2>
-              <p className="text-muted-foreground mt-2">
-                  Your stats will appear here shortly.
-              </p>
-          </div>
+      <div className="flex-1 flex items-center justify-center text-center py-10">
+        <h2 className="text-2xl font-semibold">Waiting for the dealer...</h2>
+        <p className="text-muted-foreground mt-2">
+          Your name will appear on the list once the dealer has added you to the game.
+        </p>
       </div>
-    )
+    );
   }
   
   const totalBuyins = player.rebuys ?? 0;
   
-  const handleRebuy = () => {
-    addRebuy(player.id);
+  const handleRebuyRequest = () => {
+    requestRebuy(player.id);
   }
 
   return (
@@ -99,10 +96,17 @@ export function PlayerView({ playerName }: PlayerViewProps) {
             <p className="text-sm">Total Buy-ins</p>
             <p className="text-5xl font-bold">{totalBuyins}</p>
           </div>
-          <Button onClick={handleRebuy} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Request Re-buy
-          </Button>
+          {player.hasPendingRebuyRequest ? (
+             <Button size="lg" disabled className="bg-accent/50 text-accent-foreground">
+                <Clock className="mr-2 h-5 w-5 animate-spin" />
+                Request Pending...
+             </Button>
+          ) : (
+            <Button onClick={handleRebuyRequest} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                <PlusCircle className="mr-2 h-5 w-5" />
+                Request Re-buy
+            </Button>
+          )}
         </CardContent>
       </Card>
       

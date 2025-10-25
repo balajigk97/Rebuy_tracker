@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MinusCircle, PlusCircle, Trash2, User, Info } from "lucide-react";
+import { MinusCircle, PlusCircle, Trash2, User, Info, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "../ui/input";
 import { Skeleton } from "../ui/skeleton";
@@ -89,7 +89,7 @@ function RebuyTooltip({ timestamps }: { timestamps: Timestamp[] }) {
   }
 
 export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerListProps) {
-  const { players, addRebuy, removeRebuy, deletePlayer, updateBlackCoins, isLoading } = useGame();
+  const { players, addRebuy, removeRebuy, deletePlayer, updateBlackCoins, isLoading, approveRebuy } = useGame();
 
   const sortedPlayers = useMemo(() => {
     // Memoizing the sorted list is crucial to prevent re-render issues with real-time data
@@ -116,11 +116,20 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
           {sortedPlayers.length > 0 ? (
             sortedPlayers
               .map((player) => (
-                <TableRow key={player.id} className={cn(player.name === highlightPlayerName && "bg-accent/50")}>
+                <TableRow 
+                  key={player.id} 
+                  className={cn(
+                    player.name === highlightPlayerName && "bg-accent/50",
+                    isDealer && player.hasPendingRebuyRequest && "bg-yellow-100 dark:bg-yellow-900/30"
+                  )}
+                >
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                         {player.name === highlightPlayerName && <User className="h-4 w-4 text-primary" />}
                         <span>{player.name}</span>
+                        {isDealer && player.hasPendingRebuyRequest && (
+                           <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400 animate-pulse">(Requesting Rebuy)</span>
+                        )}
                     </div>
                   </TableCell>
                   <TableCell className="text-center text-lg font-bold">
@@ -145,6 +154,27 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                   {isDealer && (
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {player.hasPendingRebuyRequest ? (
+                            <Button
+                                size="sm"
+                                onClick={() => approveRebuy(player.id)}
+                                aria-label={`Approve re-buy for ${player.name}`}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                                <CheckCircle className="h-5 w-5 mr-2" />
+                                Approve
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => addRebuy(player.id)}
+                                aria-label={`Add re-buy for ${player.name}`}
+                            >
+                                <PlusCircle className="h-5 w-5 text-green-600" />
+                            </Button>
+                        )}
+
                         <Button
                           variant="ghost"
                           size="icon"
@@ -154,14 +184,7 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                         >
                           <MinusCircle className="h-5 w-5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => addRebuy(player.id)}
-                          aria-label={`Add re-buy for ${player.name}`}
-                        >
-                          <PlusCircle className="h-5 w-5 text-green-600" />
-                        </Button>
+                        
                         <ConfirmationDialog
                           title="Delete Player?"
                           description={`Are you sure you want to delete ${player.name}? This action cannot be undone.`}

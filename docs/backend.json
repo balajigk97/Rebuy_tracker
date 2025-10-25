@@ -24,13 +24,18 @@
           "items": {
             "type": "object"
           }
+        },
+        "hasPendingRebuyRequest": {
+            "type": "boolean",
+            "description": "True if the player has requested a rebuy and is waiting for dealer approval."
         }
       },
       "required": [
         "name",
         "blackCoins",
         "createdAt",
-        "rebuyTimestamps"
+        "rebuyTimestamps",
+        "hasPendingRebuyRequest"
       ]
     }
   },

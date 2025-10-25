@@ -21,6 +21,8 @@ export interface GameContextType {
   removeRebuy: (id: string) => void;
   updateBlackCoins: (id: string, count: number) => void;
   getPlayerByName: (name: string) => Player | undefined;
+  requestRebuy: (id: string) => void;
+  approveRebuy: (id: string) => void;
 }
 
 export const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -76,6 +78,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         rebuyTimestamps: [now],
         blackCoins: 0,
         createdAt: now,
+        hasPendingRebuyRequest: false,
       };
       addDocumentNonBlocking(playersColRef, newPlayer);
       toast({
@@ -98,6 +101,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             rebuyTimestamps: [now],
             blackCoins: 0,
             createdAt: now,
+            hasPendingRebuyRequest: false,
         };
         addDocumentNonBlocking(playersColRef, newPlayer);
         console.log(`Player ${name} created.`);
@@ -144,7 +148,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const player = players?.find(p => p.id === id);
       if (player) {
         const playerDocRef = doc(firestore, 'players', id);
-        updateDocumentNonBlocking(playerDocRef, { rebuyTimestamps: arrayUnion(Timestamp.now()) });
+        updateDocumentNonBlocking(playerDocRef, { 
+            rebuyTimestamps: arrayUnion(Timestamp.now()),
+            hasPendingRebuyRequest: false 
+        });
         toast({
           title: 'Rebuy Added',
           description: `Rebuy confirmed for ${player.name}.`,
@@ -153,6 +160,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
     },
     [firestore, players, toast]
   );
+
+  const requestRebuy = useCallback((id: string) => {
+    if (!firestore) return;
+    const playerDocRef = doc(firestore, 'players', id);
+    updateDocumentNonBlocking(playerDocRef, { hasPendingRebuyRequest: true });
+    toast({
+        title: 'Request Sent',
+        description: 'Your rebuy request has been sent to the dealer.',
+    });
+  }, [firestore, toast]);
+  
+  const approveRebuy = useCallback((id: string) => {
+    if (!firestore) return;
+    const player = players?.find(p => p.id === id);
+    if (player) {
+        addRebuy(id);
+    }
+  }, [firestore, players, addRebuy]);
 
   const removeRebuy = useCallback(
     (id: string) => {
@@ -202,6 +227,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       removeRebuy,
       updateBlackCoins,
       getPlayerByName,
+      requestRebuy,
+      approveRebuy,
     }),
     [
       players,
@@ -215,6 +242,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       removeRebuy,
       updateBlackCoins,
       getPlayerByName,
+      requestRebuy,
+      approveRebuy,
     ]
   );
 

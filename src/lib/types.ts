@@ -8,4 +8,5 @@ export type Player = {
   blackCoins: number;
   createdAt: Timestamp;
   rebuyTimestamps: Timestamp[];
+  hasPendingRebuyRequest: boolean;
 };

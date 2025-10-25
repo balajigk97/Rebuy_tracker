@@ -2,17 +2,36 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut, User, UserCog } from "lucide-react";
+
+const PLAYER_NAME_KEY = "poker_player_name";
 
 export function AppHeader() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const role = searchParams.get("role");
+  const pathname = usePathname();
   const name = searchParams.get("name");
-
+  const isDealer = pathname.includes('/dealer');
+  
   const handleExit = () => {
+    // If the user is a player, clear their saved name on exit.
+    if (name) {
+      try {
+        localStorage.removeItem(PLAYER_NAME_KEY);
+      } catch (e) {
+        console.error("Could not remove item from localStorage.", e);
+      }
+    }
+    // Also clear the dealer session if they exit
+    if (isDealer) {
+        try {
+            sessionStorage.removeItem('dealerAuthenticated');
+        } catch (e) {
+            console.error("Could not remove item from sessionStorage.", e);
+        }
+    }
     router.push('/');
   };
   
@@ -24,7 +43,7 @@ export function AppHeader() {
           <span className="text-xl font-bold font-headline">Rebuy Tracker</span>
         </Link>
         <div className="flex items-center gap-4">
-          {role === 'dealer' && (
+          {isDealer && (
              <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
                     <UserCog className="h-4 w-4" />
@@ -32,7 +51,7 @@ export function AppHeader() {
                 </div>
              </div>
           )}
-          {role === 'player' && name && (
+          {name && (
              <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
                 <User className="h-4 w-4" />
                 <span>Player: {name}</span>

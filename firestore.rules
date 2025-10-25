@@ -2,47 +2,42 @@
  * @fileoverview Firestore Security Rules for the poker game application.
  *
  * Core Philosophy:
- * This ruleset focuses on securing player data. All players are anonymous.
- * It ensures only authenticated users can update their own player documents.
+ * This ruleset prioritizes security for player data. It allows any authenticated user to list player documents but requires authentication for creating, updating, or deleting player data.  Since we do not have any concept of ownership or user id, all authenticated users can modify all the data. This should be changed for production.
  *
  * Data Structure:
- * - /players/{playerId}: Stores player information. The `playerId` matches the user's `auth.uid`.
+ * - /players/{playerId}: Stores player information.
  *
  * Key Security Decisions:
- * - Players can only update their own player documents.
- * - Data validation is relaxed to enable rapid prototyping. Only essential auth checks are performed.
- * - The rules implicitly trust the server-side logic to maintain game state and enforce fair play.
+ * - Player documents are publicly listable to all authenticated users.
+ * - All authenticated users can create, update, and delete player data. This should be restricted in the future, likely to a concept of ownership or game admin roles.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Rules for the /players/{playerId} collection.
+     * @description Rules for the /players/{playerId} collection. Allows listing for all authenticated users, and create/update/delete for all authenticated users.
      * @path /players/{playerId}
-     * @allow (update) User with UID 'Y9U1YvBBHRXr3wNrKWjE3CvNaL02' can update the document with ID 'Y9U1YvBBHRXr3wNrKWjE3CvNaL02'.
-     * @deny (update) User with UID 'otherUserId' cannot update the document with ID 'Y9U1YvBBHRXr3wNrKWjE3CvNaL02'.
-     * @principle Enforces document ownership for writes.
+     * @allow (list) User is authenticated.
+     * @allow (create) User is authenticated.
+     * @allow (update) User is authenticated.
+     * @allow (delete) User is authenticated.
+     * @deny (create) User is not authenticated.
+     * @deny (update) User is not authenticated.
+     * @deny (delete) User is not authenticated.
+     * @principle Allows all authenticated users to list players and create/update/delete player data.
      */
     match /players/{playerId} {
       allow get: if true;
-      allow list: if false;
-      allow create: if false;
-      allow update: if isExistingOwner(playerId);
-      allow delete: if isExistingOwner(playerId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
-  }
 
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return isSignedIn() && request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
+    // Helper function to check if the user is signed in.
+    function isSignedIn() {
+      return request.auth != null;
+    }
   }
 }

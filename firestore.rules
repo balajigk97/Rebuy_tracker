@@ -1,34 +1,64 @@
 /**
- * @description This ruleset enforces a public read, owner-write model for player data.
- * @dataStructure The database stores player information under the `/players/{playerId}` path.
- * @keySecurityDecisions
- *   - Players can be listed by anyone
- *   - Players can be created, updated and deleted by only authenticated users.
- *   - No schema validation is done for prototyping speed.
+ * @description This ruleset enforces a strict owner-only access model for players and read-only access to logs.
+ *
+ * Data Structure:
+ * - /players/{playerId}: Stores individual player data. Access is restricted to the player themselves.
+ * - /logs/{logId}: Stores game logs.  Publicly readable.
+ *
+ * Key Security Decisions:
+ * - Players can only read and write their own data.
+ * - Game logs are publicly readable but cannot be created, updated, or deleted via the client.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read player data, but only authenticated users can create, update or delete it.
+     * @description Manages player data, restricting access to the owning player.
      * @path /players/{playerId}
-     * @allow (get, list): Allows anyone to read player documents.
-     * @allow (create): Only authenticated users can create player documents.
-     * @allow (update, delete): Only authenticated users can update or delete player documents.
-     * @deny (create): If the authenticated user ID does not match the player document's owner ID.
-     * @deny (update, delete): If the authenticated user is not the owner of the player document.
-     * @principle Allows public read access while restricting write access to authenticated users.
+     * @allow (create) User with UID 'user_abc' can create their own player document at /players/user_abc. The document must have id: 'user_abc'.
+     * @allow (get) User with UID 'user_abc' can read their own player document at /players/user_abc.
+     * @allow (update) User with UID 'user_abc' can update their own player document at /players/user_abc.
+     * @allow (delete) User with UID 'user_abc' can delete their own player document at /players/user_abc.
+     * @deny (create) User with UID 'user_xyz' cannot create a player document at /players/user_abc.
+     * @deny (get) User with UID 'user_xyz' cannot read the player document at /players/user_abc.
+     * @deny (update) User with UID 'user_xyz' cannot update the player document at /players/user_abc.
+     * @deny (delete) User with UID 'user_xyz' cannot delete the player document at /players/user_abc.
+     * @principle Enforces document ownership for all operations.
      */
     match /players/{playerId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && resource != null;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(playerId) {
+        return request.auth.uid == playerId;
+      }
+
+      allow get: if isSignedIn() && isOwner(playerId);
+      allow list: if false;
+
+      allow create: if isSignedIn() && isOwner(playerId);
+      allow update: if isSignedIn() && isOwner(playerId);
+      allow delete: if isSignedIn() && isOwner(playerId);
     }
 
-    // Define helper functions here
-    function isSignedIn() {
-      return request.auth != null;
+    /**
+     * @description Allows public read access to game logs. Write access is denied.
+     * @path /logs/{logId}
+     * @allow (get) Any user (signed in or not) can read a log entry.
+     * @allow (list) Any user (signed in or not) can list log entries.
+     * @deny (create) No user can create log entries.
+     * @deny (update) No user can update log entries.
+     * @deny (delete) No user can delete log entries.
+     * @principle Allows public read-only access.
+     */
+    match /logs/{logId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }

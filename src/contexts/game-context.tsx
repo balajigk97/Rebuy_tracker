@@ -55,7 +55,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const getPlayerByName = useCallback(
     (name: string) => {
-      return players?.find(p => p.name.toLowerCase() === name.toLowerCase());
+        if (!name) return undefined;
+        return players?.find(p => p.name.toLowerCase() === name.toLowerCase());
     },
     [players]
   );
@@ -66,7 +67,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (getPlayerByName(name)) {
         toast({
           title: 'Player already exists',
-          description: `${name} is already at the table.`,
+          description: `A player named ${name} is already at the table. Player names must be unique (case-insensitive).`,
           variant: 'destructive',
         });
         return;
@@ -97,33 +98,33 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
   
   const findOrCreatePlayer = useCallback(async (name: string) => {
-    if (!firestore || !playersColRef) return;
-    
-    const q = query(playersColRef, where("name", "==", name));
-    const querySnapshot = await getDocs(q);
+    if (!firestore || !playersColRef || !name) return;
+  
+    // Use a case-insensitive check before creating
+    const existingPlayer = players.find(p => p.name.toLowerCase() === name.toLowerCase());
 
-    if (querySnapshot.empty) {
-        const now = Timestamp.now();
-        const newPlayer: Omit<Player, 'id'| 'rebuys'> = {
-            name,
-            rebuyTimestamps: [now],
-            blackCoins: 0,
-            createdAt: now,
-            hasPendingRebuyRequest: false,
-        };
-        addDoc(playersColRef, newPlayer).catch(serverError => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: playersColRef.path,
-                operation: 'create',
-                requestResourceData: newPlayer,
-            }));
-        });
-        console.log(`Player ${name} created.`);
+    if (!existingPlayer) {
+      const now = Timestamp.now();
+      const newPlayer: Omit<Player, 'id'| 'rebuys'> = {
+          name,
+          rebuyTimestamps: [now],
+          blackCoins: 0,
+          createdAt: now,
+          hasPendingRebuyRequest: false,
+      };
+      addDoc(playersColRef, newPlayer).catch(serverError => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: playersColRef.path,
+              operation: 'create',
+              requestResourceData: newPlayer,
+          }));
+      });
+      console.log(`Player ${name} created.`);
     } else {
         console.log(`Player ${name} already exists.`);
     }
 
-  }, [firestore, playersColRef]);
+  }, [firestore, playersColRef, players]);
 
 
   const deletePlayer = useCallback(

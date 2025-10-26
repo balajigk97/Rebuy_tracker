@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 
 const PLAYER_NAME_KEY = "poker_player_name";
 const PREDEFINED_PLAYERS = ["Ramki", "Mallik", "Srikanth M", "Kumar", "Nagesh", "Siva", "Tom", "Anil", "Shashank"];
@@ -25,6 +26,8 @@ export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
   const [savedPlayerName, setSavedPlayerName] = useState<string | null>(null);
   const router = useRouter();
+  const { getPlayerByName } = useGame();
+  const { toast } = useToast();
 
   useEffect(() => {
     try {
@@ -40,13 +43,24 @@ export function RoleSelector() {
 
   const handlePlayerJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (playerName.trim()) {
+    const trimmedName = playerName.trim();
+    if (trimmedName) {
+      const existingPlayer = getPlayerByName(trimmedName);
+      if (existingPlayer && existingPlayer.name.toLowerCase() !== (savedPlayerName ?? '').toLowerCase()) {
+        toast({
+          title: 'Player already exists',
+          description: `A player named ${trimmedName} is already at the table. Please choose a different name.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       try {
-        localStorage.setItem(PLAYER_NAME_KEY, playerName.trim());
+        localStorage.setItem(PLAYER_NAME_KEY, trimmedName);
       } catch (e) {
         console.error("Could not set item in localStorage.", e);
       }
-      router.push(`/player?name=${encodeURIComponent(playerName.trim())}`);
+      router.push(`/player?name=${encodeURIComponent(trimmedName)}`);
     }
   };
   

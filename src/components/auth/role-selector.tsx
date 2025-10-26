@@ -7,7 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, UserCog, History } from "lucide-react";
+import { User, UserCog, History, Users } from "lucide-react";
+import { useGame } from "@/contexts/game-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const PLAYER_NAME_KEY = "poker_player_name";
 
@@ -15,11 +24,15 @@ export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
   const [savedPlayerName, setSavedPlayerName] = useState<string | null>(null);
   const router = useRouter();
+  const { players } = useGame();
 
   useEffect(() => {
     try {
       const savedName = localStorage.getItem(PLAYER_NAME_KEY);
       setSavedPlayerName(savedName);
+      if (savedName) {
+        setPlayerName(savedName);
+      }
     } catch (e) {
       console.error("Could not access localStorage.", e);
     }
@@ -54,6 +67,7 @@ export function RoleSelector() {
       console.error("Could not remove item from localStorage.", e);
     }
     setSavedPlayerName(null);
+    setPlayerName("");
   };
 
   if (savedPlayerName) {
@@ -89,13 +103,44 @@ export function RoleSelector() {
             <Label htmlFor="name" className="text-primary-foreground">Player Name</Label>
             <Input
               id="name"
-              placeholder="Enter your name"
+              placeholder="Enter your name to join"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               required
               className="bg-background/80 text-foreground"
             />
           </div>
+
+          {players && players.length > 0 && (
+            <div className="space-y-2">
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-white/20" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-card px-2 text-primary-foreground/60">
+                        Or select existing
+                        </span>
+                    </div>
+                </div>
+                <Select onValueChange={(value) => setPlayerName(value)}>
+                    <SelectTrigger className="bg-background/80 text-foreground">
+                        <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <SelectValue placeholder="Select from players at the table..." />
+                        </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <ScrollArea className="h-48">
+                        {players.map(p => (
+                            <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                        ))}
+                      </ScrollArea>
+                    </SelectContent>
+                </Select>
+            </div>
+          )}
+
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!playerName.trim()}>
             Join Game
           </Button>

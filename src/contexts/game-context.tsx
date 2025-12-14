@@ -174,35 +174,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const deleteAllPlayers = useCallback(async () => {
     if (!firestore || !playersColRef || players.length === 0) return;
 
-    // --- Save game history for "Tom" before deleting ---
-    const tomData = players.find(p => p.name.toLowerCase() === 'tom');
-    if (tomData) {
-        const gameHistoryRef = collection(firestore, 'games');
-        const gameData = {
-            endedAt: Timestamp.now(),
-            players: [{ // Save only Tom's data in an array
-                name: tomData.name,
-                buyIns: tomData.rebuys,
-                blackCoins: tomData.blackCoins,
-                endCount: tomData.blackCoins - tomData.rebuys,
-            }],
-        };
-        try {
-            await addDoc(gameHistoryRef, gameData);
-            toast({
-              title: 'Game Saved for Tom',
-              description: 'The game results for Tom have been archived.',
-            });
-        } catch(e) {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: gameHistoryRef.path,
-                operation: 'create',
-                requestResourceData: gameData
-            }));
-        }
-    }
-    // ------------------------------------------
-
     try {
         const batch = writeBatch(firestore);
         const q = query(playersColRef);

@@ -58,10 +58,6 @@ export function RoleSelector() {
     router.push('/dealer');
   };
 
-  const handleViewHistory = () => {
-    router.push('/history');
-  };
-
   const handleResumeSession = () => {
     if (savedPlayerName) {
       router.push(`/player?name=${encodeURIComponent(savedPlayerName)}`);
@@ -151,9 +147,6 @@ export function RoleSelector() {
             Join Game
           </Button>
         </form>
-        <Button onClick={handleViewHistory} variant="secondary" className="w-full">
-            <History className="mr-2 h-4 w-4" /> View Game History
-        </Button>
       </TabsContent>
       <TabsContent value="dealer" className="mt-4">
          <div className="space-y-4 text-center">

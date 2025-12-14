@@ -6,12 +6,11 @@
  * It focuses on securing read and write access to a public collection of `players`. All users, including unauthenticated ones, can read `players` collection, but only authenticated users can create, update or delete player information.
  *
  * Data Structure:
- * The Firestore database contains two top-level collections:
+ * The Firestore database contains one top-level collection:
  * - `/players/{playerId}`: Stores individual player profiles for the live game.
- * - `/games/{gameId}`: Stores historical records of completed games.
  *
  * Key Security Decisions:
- * - Public Read Access: All users, including unauthenticated users, can read all documents in the `players` and `games` collections.
+ * - Public Read Access: All users, including unauthenticated users, can read all documents in the `players` collection.
  * - Authenticated Writes: Only authenticated users can create, update, and delete documents.
  *
  * Denormalization for Authorization:
@@ -30,19 +29,6 @@ service cloud.firestore {
     match /players/{playerId} {
       allow read: if true;
       allow write: if isSignedIn();
-    }
-
-    /**
-     * @description Allows anyone to read game history, but only authenticated users to write.
-     * @path /games/{gameId}
-     * @allow (read): Anyone can read game history.
-     * @allow (create): Authenticated users can create new game history records.
-     * @principle Allows public read access to game history and authenticated writes for archival.
-     */
-    match /games/{gameId} {
-        allow read: if true;
-        allow create: if isSignedIn();
-        allow update, delete: if false; // Game history should be immutable.
     }
 
     // ---- Helper functions ----

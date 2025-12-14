@@ -38,41 +38,6 @@
         "rebuyTimestamps",
         "hasPendingRebuyRequest"
       ]
-    },
-    "Game": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Game",
-      "type": "object",
-      "description": "Represents a historical record of a completed game.",
-      "properties": {
-        "endedAt": {
-          "type": "object",
-          "description": "The timestamp when the game was completed."
-        },
-        "players": {
-          "type": "array",
-          "description": "A snapshot of the players and their results from the game.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "buyIns": {
-                "type": "number"
-              },
-              "blackCoins": {
-                "type": "number"
-              },
-              "endCount": {
-                "type": "number"
-              }
-            },
-            "required": ["name", "buyIns", "blackCoins", "endCount"]
-          }
-        }
-      },
-      "required": ["endedAt", "players"]
     }
   },
   "auth": {
@@ -96,16 +61,6 @@
               "description": "The unique ID of the player document."
             }
           ]
-        }
-      },
-      {
-        "path": "/games/{gameId}",
-        "definition": {
-            "entityName": "Game",
-            "schema": {
-                "$ref": "#/backend/entities/Game"
-            },
-            "description": "Stores historical records of completed games."
         }
       }
     ]

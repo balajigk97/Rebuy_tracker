@@ -6,13 +6,13 @@
  * It focuses on securing read and write access to a public collection of `players`. All users, including unauthenticated ones, can read `players` collection, but only authenticated users can create, update or delete player information.
  *
  * Data Structure:
- * The Firestore database contains a single top-level collection:
- * - `/players/{playerId}`: Stores individual player profiles. The `playerId` is a unique identifier for each player document.
+ * The Firestore database contains two top-level collections:
+ * - `/players/{playerId}`: Stores individual player profiles for the live game.
+ * - `/games/{gameId}`: Stores historical records of completed games.
  *
  * Key Security Decisions:
- * - Public Read Access: All users, including unauthenticated users, can read all documents in the `players` collection.
- * - Authenticated Writes: Only authenticated users can create, update, and delete documents in the `players` collection.
- * - No User Listing: Listing all users is not permitted.
+ * - Public Read Access: All users, including unauthenticated users, can read all documents in the `players` and `games` collections.
+ * - Authenticated Writes: Only authenticated users can create, update, and delete documents.
  *
  * Denormalization for Authorization:
  * - The `Player` documents are assumed to contain all the necessary information for authorization.
@@ -31,10 +31,21 @@ service cloud.firestore {
      * @principle Allows public read access to player data and authenticated writes.
      */
     match /players/{playerId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    /**
+     * @description Allows anyone to read game history, but only authenticated users to write.
+     * @path /games/{gameId}
+     * @allow (get, list): Anyone can read game history.
+     * @allow (create): Authenticated users can create new game history records.
+     * @principle Allows public read access to game history and authenticated writes for archival.
+     */
+    match /games/{gameId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if false; // Game history should be immutable.
     }
 
     // ---- Helper functions ----

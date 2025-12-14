@@ -98,24 +98,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const findOrCreatePlayer = useCallback(async (name: string) => {
     if (!firestore || !playersColRef || !name) return;
   
-    // This function now robustly handles case-insensitivity at the data layer.
-    const querySnapshot = await getDocsFirestore(query(playersColRef, where("name", "==", name)));
+    const q = query(playersColRef, where("name", "==", name));
+    const querySnapshot = await getDocsFirestore(q);
     
     let existingPlayer = null;
     if (!querySnapshot.empty) {
-        existingPlayer = querySnapshot.docs[0].data();
+        // Exact match found
+        console.log(`Player ${name} already exists (exact match).`);
+        return;
     }
-    
-    // If no exact match, do a case-insensitive check on the client-side players list as a fallback.
-    if (!existingPlayer) {
-        const clientSideMatch = players.find(p => p.name.toLowerCase() === name.toLowerCase());
-        if(clientSideMatch) {
-            console.log(`Player ${name} found (case-insensitive).`);
-            return; // Player exists, do nothing.
-        }
-    } else {
-        console.log(`Player ${name} already exists.`);
-        return; // Player exists, do nothing.
+
+    // If no exact match, check client-side for case-insensitive match
+    const clientSideMatch = players.find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (clientSideMatch) {
+        console.log(`Player ${name} already exists (case-insensitive).`);
+        return;
     }
 
     // If we've reached here, the player truly does not exist.
@@ -163,7 +160,33 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteAllPlayers = useCallback(async () => {
-    if (!firestore || !playersColRef) return;
+    if (!firestore || !playersColRef || players.length === 0) return;
+
+    // --- Save game history before deleting ---
+    const gameHistoryRef = collection(firestore, 'games');
+    const gameData = {
+        endedAt: Timestamp.now(),
+        players: players.map(p => ({
+            name: p.name,
+            buyIns: p.rebuys,
+            blackCoins: p.blackCoins,
+            endCount: p.blackCoins - p.rebuys,
+        })),
+    };
+    try {
+        await addDoc(gameHistoryRef, gameData);
+        toast({
+          title: 'Game Saved',
+          description: 'The game results have been archived.',
+        });
+    } catch(e) {
+         errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: gameHistoryRef.path,
+            operation: 'create',
+            requestResourceData: gameData
+        }));
+    }
+    // ------------------------------------------
 
     try {
         const batch = writeBatch(firestore);
@@ -178,17 +201,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
         toast({
             title: 'Game Reset',
-            description: 'All players have been removed.',
+            description: 'All players have been removed for the next game.',
             variant: 'destructive',
         });
     } catch(serverError) {
-        // This is a complex operation, so we just signal the attempt
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: playersColRef.path,
-            operation: 'delete', // Batch delete can be simplified to a collection-level delete op
+            operation: 'delete',
         }));
     }
-  }, [firestore, playersColRef, toast]);
+  }, [firestore, playersColRef, players, toast]);
 
 
   const addRebuy = useCallback(

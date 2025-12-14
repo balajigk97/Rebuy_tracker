@@ -24,11 +24,8 @@ service cloud.firestore {
     /**
      * @description Allows anyone to read player data, but only authenticated users to write.
      * @path /players/{playerId}
-     * @allow (get, list): Anyone can read player data.
-     * @allow (create): Authenticated user can create a player if the player data is valid.
-     * @allow (update, delete): Authenticated user can update/delete player data if the player data is valid.
-     * @deny (create, update, delete): Unauthenticated user cannot create/update/delete player data.
-     * @principle Allows public read access to player data and authenticated writes.
+     * @allow (read): Anyone can read player data.
+     * @allow (write): Authenticated user can write player data.
      */
     match /players/{playerId} {
       allow read: if true;
@@ -38,7 +35,7 @@ service cloud.firestore {
     /**
      * @description Allows anyone to read game history, but only authenticated users to write.
      * @path /games/{gameId}
-     * @allow (get, list): Anyone can read game history.
+     * @allow (read): Anyone can read game history.
      * @allow (create): Authenticated users can create new game history records.
      * @principle Allows public read access to game history and authenticated writes for archival.
      */

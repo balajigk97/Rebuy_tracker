@@ -99,40 +99,52 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!firestore || !playersColRef || !name) return;
   
     const q = query(playersColRef, where("name", "==", name));
-    const querySnapshot = await getDocsFirestore(q);
     
-    let existingPlayer = null;
-    if (!querySnapshot.empty) {
-        // Exact match found
-        console.log(`Player ${name} already exists (exact match).`);
-        return;
+    // Use a try-catch for the async Firestore call
+    try {
+        const querySnapshot = await getDocsFirestore(q);
+        
+        if (!querySnapshot.empty) {
+            // Exact match found, do nothing.
+            console.log(`Player ${name} already exists (exact match).`);
+            return;
+        }
+
+        // If no exact match, check client-side for case-insensitive match
+        const clientSideMatch = players.find(p => p.name.toLowerCase() === name.toLowerCase());
+        if (clientSideMatch) {
+            console.log(`Player ${name} already exists (case-insensitive).`);
+            return;
+        }
+
+        // If we've reached here, the player truly does not exist. Create them.
+        console.log(`Player ${name} does not exist. Creating...`);
+        const now = Timestamp.now();
+        const newPlayer: Omit<Player, 'id'| 'rebuys'> = {
+            name,
+            rebuyTimestamps: [now],
+            blackCoins: 0,
+            createdAt: now,
+            hasPendingRebuyRequest: false,
+        };
+        addDoc(playersColRef, newPlayer).catch(serverError => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: playersColRef.path,
+                operation: 'create',
+                requestResourceData: newPlayer,
+            }));
+        });
+        console.log(`Player ${name} created.`);
+    } catch (error) {
+        console.error("Error finding or creating player:", error);
+        // Optionally emit a permission error if that's a likely cause
+        if (error instanceof Error && 'code' in error && (error as any).code === 'permission-denied') {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: playersColRef.path,
+                operation: 'list', // 'list' is used for queries
+            }));
+        }
     }
-
-    // If no exact match, check client-side for case-insensitive match
-    const clientSideMatch = players.find(p => p.name.toLowerCase() === name.toLowerCase());
-    if (clientSideMatch) {
-        console.log(`Player ${name} already exists (case-insensitive).`);
-        return;
-    }
-
-    // If we've reached here, the player truly does not exist.
-    const now = Timestamp.now();
-    const newPlayer: Omit<Player, 'id'| 'rebuys'> = {
-        name,
-        rebuyTimestamps: [now],
-        blackCoins: 0,
-        createdAt: now,
-        hasPendingRebuyRequest: false,
-    };
-    addDoc(playersColRef, newPlayer).catch(serverError => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: playersColRef.path,
-            operation: 'create',
-            requestResourceData: newPlayer,
-        }));
-    });
-    console.log(`Player ${name} created.`);
-
   }, [firestore, playersColRef, players]);
 
 
@@ -162,29 +174,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const deleteAllPlayers = useCallback(async () => {
     if (!firestore || !playersColRef || players.length === 0) return;
 
-    // --- Save game history before deleting ---
-    const gameHistoryRef = collection(firestore, 'games');
-    const gameData = {
-        endedAt: Timestamp.now(),
-        players: players.map(p => ({
-            name: p.name,
-            buyIns: p.rebuys,
-            blackCoins: p.blackCoins,
-            endCount: p.blackCoins - p.rebuys,
-        })),
-    };
-    try {
-        await addDoc(gameHistoryRef, gameData);
-        toast({
-          title: 'Game Saved',
-          description: 'The game results have been archived.',
-        });
-    } catch(e) {
-         errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: gameHistoryRef.path,
-            operation: 'create',
-            requestResourceData: gameData
-        }));
+    // --- Save game history for "Tom" before deleting ---
+    const tomData = players.find(p => p.name.toLowerCase() === 'tom');
+    if (tomData) {
+        const gameHistoryRef = collection(firestore, 'games');
+        const gameData = {
+            endedAt: Timestamp.now(),
+            players: [{ // Save only Tom's data in an array
+                name: tomData.name,
+                buyIns: tomData.rebuys,
+                blackCoins: tomData.blackCoins,
+                endCount: tomData.blackCoins - tomData.rebuys,
+            }],
+        };
+        try {
+            await addDoc(gameHistoryRef, gameData);
+            toast({
+              title: 'Game Saved for Tom',
+              description: 'The game results for Tom have been archived.',
+            });
+        } catch(e) {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: gameHistoryRef.path,
+                operation: 'create',
+                requestResourceData: gameData
+            }));
+        }
     }
     // ------------------------------------------
 

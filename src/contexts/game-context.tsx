@@ -1,11 +1,12 @@
 'use client';
-import React, { createContext, useContext, useMemo, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useCallback, ReactNode } from 'react';
 import { useFirestore, useCollection, useAuth, initiateAnonymousSignIn, useUser as useFirebaseUser } from '@/firebase';
-import { collection, doc, Timestamp, arrayUnion, arrayRemove, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc, where, CollectionReference, getDocs as getDocsFirestore } from 'firebase/firestore';
+import { collection, doc, Timestamp, arrayUnion, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc, where, CollectionReference, getDocs as getDocsFirestore } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useEffect } from 'react';
 
 export interface GameContextType {
   players: Player[];
@@ -184,7 +185,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const playerDocRef = doc(firestore, 'players', id);
         const updateData = { 
             rebuyTimestamps: arrayUnion(Timestamp.now()),
-            hasPendingRebuyRequest: false 
         };
         updateDoc(playerDocRef, updateData).catch(serverError => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({

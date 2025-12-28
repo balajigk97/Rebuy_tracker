@@ -13,9 +13,14 @@ interface DistroSuggestionProps {
   players: Player[];
 }
 
+function isPlayer(obj: any): obj is Player {
+    return obj && typeof obj === 'object' && 'id' in obj && 'name' in obj && 'rebuyTimestamps' in obj && Array.isArray(obj.rebuyTimestamps);
+}
+
 function PlayerBalances({ players }: { players: Player[] }) {
     const balances = useMemo(() => {
-        return players.map(p => ({
+        const validPlayers = Array.isArray(players) ? players.filter(isPlayer) : [];
+        return validPlayers.map(p => ({
             id: p.id,
             name: p.name,
             balance: p.blackCoins - (p.rebuyTimestamps?.length ?? 0)

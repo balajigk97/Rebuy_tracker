@@ -90,14 +90,14 @@ function RebuyTooltip({ timestamps }: { timestamps: Timestamp[] }) {
   }
 
 function isPlayer(obj: any): obj is Player {
-    return obj && typeof obj === 'object' && 'id' in obj && 'name' in obj && 'rebuyTimestamps' in obj;
+    return obj && typeof obj === 'object' && 'id' in obj && 'name' in obj && 'rebuyTimestamps' in obj && Array.isArray(obj.rebuyTimestamps);
 }
 
 export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerListProps) {
   const { players, addRebuy, removeRebuy, deletePlayer, updateBlackCoins, isLoading, approveRebuy } = useGame();
 
   const sortedPlayers = useMemo(() => {
-    const validPlayers = players.filter(isPlayer);
+    const validPlayers = Array.isArray(players) ? players.filter(isPlayer) : [];
     if (isDealer) {
       // For the dealer, sort by creation time to keep the list static
       return [...validPlayers].sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());

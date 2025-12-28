@@ -96,37 +96,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
   
   const findOrCreatePlayer = useCallback(async (name: string) => {
-    if (!firestore || !playersColRef || !name) return;
-  
-    const q = query(playersColRef, where("name", "==", name));
+    if (!firestore || !playersColRef || !name || !players) return;
     
-    // Use a try-catch for the async Firestore call
+    const playerExists = players.some(p => p.name.toLowerCase() === name.toLowerCase());
+  
+    if (playerExists) {
+        console.log(`Player ${name} already exists.`);
+        return;
+    }
+
+    console.log(`Player ${name} does not exist. Creating...`);
     try {
-        const querySnapshot = await getDocsFirestore(q);
-        
-        if (!querySnapshot.empty) {
-            // Exact match found, do nothing.
-            console.log(`Player ${name} already exists (exact match).`);
-            return;
-        }
-
-        // If no exact match, check client-side for case-insensitive match
-        const clientSideMatch = players.find(p => p.name.toLowerCase() === name.toLowerCase());
-        if (clientSideMatch) {
-            console.log(`Player ${name} already exists (case-insensitive).`);
-            return;
-        }
-
-        // If we've reached here, the player truly does not exist. Create them.
-        console.log(`Player ${name} does not exist. Creating...`);
         const now = Timestamp.now();
-        const newPlayer: Omit<Player, 'id'| 'rebuys'> = {
+        const newPlayer: Omit<Player, 'id' | 'rebuys'> = {
             name,
             rebuyTimestamps: [now],
             blackCoins: 0,
             createdAt: now,
             hasPendingRebuyRequest: false,
         };
+        // Use addDoc and catch potential errors
         addDoc(playersColRef, newPlayer).catch(serverError => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: playersColRef.path,
@@ -134,14 +123,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 requestResourceData: newPlayer,
             }));
         });
-        console.log(`Player ${name} created.`);
+        console.log(`Player ${name} creation initiated.`);
     } catch (error) {
-        console.error("Error finding or creating player:", error);
-        // Optionally emit a permission error if that's a likely cause
+        console.error("Error creating player:", error);
+        // This is a fallback, the addDoc().catch() should handle permission errors
         if (error instanceof Error && 'code' in error && (error as any).code === 'permission-denied') {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: playersColRef.path,
-                operation: 'list', // 'list' is used for queries
+                operation: 'create',
             }));
         }
     }
@@ -356,3 +345,5 @@ export function useGame() {
   }
   return context;
 }
+
+    

@@ -9,12 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 const DEALER_PASSWORD = 'test1234';
 
 export default function DealerPage() {
-  const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     try {
         const sessionAuth = sessionStorage.getItem('dealerAuthenticated');
         if (sessionAuth === 'true') {
@@ -22,8 +23,6 @@ export default function DealerPage() {
         }
     } catch (e) {
         console.error("Could not access sessionStorage.", e);
-    } finally {
-        setLoading(false);
     }
   }, []);
 
@@ -43,8 +42,8 @@ export default function DealerPage() {
     }
   };
 
-  if (loading) {
-    return null; // Render nothing on the server and during the initial client hydration check
+  if (!isClient) {
+    return null; // Render nothing on the server
   }
 
   if (!isAuthenticated) {

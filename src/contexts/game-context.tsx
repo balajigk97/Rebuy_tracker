@@ -38,12 +38,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const playersColRef = useMemo(() => {
     if (!firestore || !user) return null;
-    return collection(firestore, 'players') as CollectionReference<Omit<Player, 'id' | 'rebuys'>>;
+    return collection(firestore, 'players') as CollectionReference<Omit<Player, 'id'>>;
   }, [firestore, user]);
 
   const { data: players, isLoading: isPlayersLoading } = useCollection<Player>(
-    playersColRef,
-    (data) => data.map(p => ({ ...p, rebuys: p.rebuyTimestamps?.length || 0 }))
+    playersColRef
   );
 
   const getPlayerByName = useCallback(
@@ -66,7 +65,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
       const now = Timestamp.now();
-      const newPlayer: Omit<Player, 'id' | 'rebuys'> = {
+      const newPlayer: Omit<Player, 'id'> = {
         name,
         rebuyTimestamps: [now],
         blackCoins: 0,
@@ -104,7 +103,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     console.log(`Player ${name} does not exist. Creating...`);
     try {
         const now = Timestamp.now();
-        const newPlayer: Omit<Player, 'id' | 'rebuys'> = {
+        const newPlayer: Omit<Player, 'id'> = {
             name,
             rebuyTimestamps: [now],
             blackCoins: 0,

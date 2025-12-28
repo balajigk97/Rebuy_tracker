@@ -18,7 +18,7 @@ function PlayerBalances({ players }: { players: Player[] }) {
         return players.map(p => ({
             id: p.id,
             name: p.name,
-            balance: p.blackCoins - (p.rebuys ?? 0)
+            balance: p.blackCoins - (p.rebuyTimestamps?.length ?? 0)
         })).sort((a,b) => b.balance - a.balance);
     }, [players]);
 
@@ -49,7 +49,7 @@ function PlayerBalances({ players }: { players: Player[] }) {
 
 export function DistroSuggestion({ players }: DistroSuggestionProps) {
   const transactions = useMemo(() => calculateSettlement(players), [players]);
-  const totalBuyIns = players.reduce((total, player) => total + (player.rebuys ?? 0), 0);
+  const totalBuyIns = players.reduce((total, player) => total + (player.rebuyTimestamps?.length ?? 0), 0);
   const totalBlackCoins = players.reduce((total, player) => total + (player.blackCoins ?? 0), 0);
   const isBalanced = totalBuyIns === totalBlackCoins && totalBuyIns > 0;
 

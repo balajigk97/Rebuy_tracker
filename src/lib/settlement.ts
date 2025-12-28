@@ -1,3 +1,4 @@
+
 import type { Player } from './types';
 
 export interface Balance {
@@ -18,7 +19,7 @@ export function calculateSettlement(players: Player[]): Transaction[] {
 
   const balances: Balance[] = players.map(player => ({
     name: player.name,
-    amount: player.blackCoins - (player.rebuys ?? 0),
+    amount: player.blackCoins - (player.rebuyTimestamps?.length ?? 0),
   }));
 
   const debtors = balances.filter(p => p.amount < 0).map(p => ({ ...p, amount: -p.amount }));

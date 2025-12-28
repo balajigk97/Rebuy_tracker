@@ -46,7 +46,7 @@ function AddPlayerForm() {
 
 function Totals() {
     const { players } = useGame();
-    const totalBuyIns = players.reduce((total, player) => total + (player.rebuys ?? 0), 0);
+    const totalBuyIns = players.reduce((total, player) => total + (player.rebuyTimestamps?.length ?? 0), 0);
     const totalBlackCoins = players.reduce((total, player) => total + (player.blackCoins ?? 0), 0);
     const totalsMatch = totalBuyIns === totalBlackCoins;
 

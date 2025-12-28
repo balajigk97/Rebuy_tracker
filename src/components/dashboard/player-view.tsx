@@ -65,7 +65,7 @@ export function PlayerView({ playerName }: PlayerViewProps) {
     );
   }
   
-  const totalBuyins = player.rebuys ?? 0;
+  const totalBuyins = player.rebuyTimestamps?.length ?? 0;
   
   const handleRebuyRequest = () => {
     requestRebuy(player.id);

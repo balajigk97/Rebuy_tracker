@@ -98,7 +98,7 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
       return [...players].sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
     }
     // For players, sort by rebuys to show standings
-    return [...players].sort((a, b) => (b.rebuys ?? 0) - (a.rebuys ?? 0));
+    return [...players].sort((a, b) => (b.rebuyTimestamps?.length ?? 0) - (a.rebuyTimestamps?.length ?? 0));
   }, [players, isDealer]);
 
   if (isLoading) {
@@ -169,7 +169,7 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                           size="icon"
                           onClick={() => removeRebuy(player.id)}
                           aria-label={`Remove re-buy for ${player.name}`}
-                          disabled={(player.rebuys ?? 0) <= 1}
+                          disabled={(player.rebuyTimestamps?.length ?? 0) <= 1}
                         >
                           <MinusCircle className="h-5 w-5" />
                         </Button>
@@ -203,7 +203,7 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                         />
                       </TableCell>
                       <TableCell className="text-center text-lg font-bold">
-                        {player.blackCoins - (player.rebuys ?? 0)}
+                        {player.blackCoins - (player.rebuyTimestamps?.length ?? 0)}
                       </TableCell>
                     </>
                   )}

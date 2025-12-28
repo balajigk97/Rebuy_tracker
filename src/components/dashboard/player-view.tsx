@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { PlayerList } from "./player-list";
 import { Users, Clock, PlusCircle } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
-import { SyncStatusIndicator } from "../shared/sync-status-indicator";
 
 interface PlayerViewProps {
   playerName: string;
@@ -108,7 +107,6 @@ export function PlayerView({ playerName }: PlayerViewProps) {
           <PlayerList highlightPlayerName={playerName} />
         </CardContent>
       </Card>
-      <SyncStatusIndicator />
     </div>
   );
 }

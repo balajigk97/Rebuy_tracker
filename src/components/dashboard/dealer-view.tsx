@@ -11,7 +11,6 @@ import { DollarSign, Users, Clock, Trash, Banknote, Shuffle } from "lucide-react
 import { ConfirmationDialog } from "../shared/confirmation-dialog";
 import { cn } from "@/lib/utils";
 import { DistroSuggestion } from "./distro-suggestion";
-import { SyncStatusIndicator } from "../shared/sync-status-indicator";
 
 function AddPlayerForm() {
     const [newPlayerName, setNewPlayerName] = useState("");
@@ -123,8 +122,6 @@ export function DealerView() {
 
             <DistroSuggestion players={players} />
         </div>
-
-        <SyncStatusIndicator />
     </div>
   );
 }

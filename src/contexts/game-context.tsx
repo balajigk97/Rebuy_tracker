@@ -41,15 +41,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return collection(firestore, 'players') as CollectionReference<Omit<Player, 'id' | 'rebuys'>>;
   }, [firestore, user]);
 
-  const { data: playersFromHook, isLoading: isPlayersLoading } = useCollection<Omit<Player, 'rebuys'>>(playersColRef);
-  
-  const players = useMemo(() => {
-    return playersFromHook?.map(p => ({
-        ...p,
-        rebuys: p.rebuyTimestamps?.length || 0,
-    })) || [];
-  }, [playersFromHook]);
-
+  const { data: players, isLoading: isPlayersLoading } = useCollection<Player>(
+    playersColRef,
+    (data) => data.map(p => ({ ...p, rebuys: p.rebuyTimestamps?.length || 0 }))
+  );
 
   const getPlayerByName = useCallback(
     (name: string) => {
@@ -157,7 +152,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteAllPlayers = useCallback(async () => {
-    if (!firestore || !playersColRef || players.length === 0) return;
+    if (!firestore || !playersColRef || !players || players.length === 0) return;
 
     try {
         const batch = writeBatch(firestore);

@@ -41,8 +41,7 @@ export interface UseCollectionResult<T> {
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
 export function useCollection<T = any>(
-    targetRefOrQuery: CollectionReference<DocumentData> | Query<DocumentData> | null | undefined,
-    transformer?: (data: WithId<any>[]) => T[]
+    targetRefOrQuery: CollectionReference<DocumentData> | Query<DocumentData> | null | undefined
 ): UseCollectionResult<T> {
   
   const [data, setData] = useState<T[] | null>(null);
@@ -63,9 +62,12 @@ export function useCollection<T = any>(
     const unsubscribe = onSnapshot(
       targetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: WithId<any>[] = snapshot.docs.map(doc => ({ ...(doc.data() as any), id: doc.id }));
-        const transformedData = transformer ? transformer(results) : results as T[];
-        setData(transformedData);
+        const results: WithId<T>[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as WithId<T>[];
+        
+        setData(results);
         setError(null);
         setIsLoading(false);
       },

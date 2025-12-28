@@ -1,148 +1,145 @@
 'use client';
-import React, { createContext, useContext, useMemo, useCallback, ReactNode } from 'react';
-import { useFirestore, useCollection, useAuth, initiateAnonymousSignIn, useUser as useFirebaseUser } from '@/firebase';
-import { collection, doc, Timestamp, arrayUnion, writeBatch, getDocs, query, setDoc, addDoc, updateDoc, deleteDoc, where, CollectionReference, getDocs as getDocsFirestore } from 'firebase/firestore';
+
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  ReactNode,
+} from 'react';
+import {
+  collection,
+  doc,
+  Timestamp,
+  arrayUnion,
+  writeBatch,
+  query,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  CollectionReference,
+  getDoc,
+} from 'firebase/firestore';
+import {
+  useFirestore,
+  useCollection,
+  useAuth,
+  initiateAnonymousSignIn,
+  useUser as useFirebaseUser,
+} from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import type { Player } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useEffect } from 'react';
 
 export interface GameContextType {
   players: Player[];
   isLoading: boolean;
-  addPlayer: (name: string) => void;
-  findOrCreatePlayer: (name: string) => Promise<void>;
-  deletePlayer: (id: string) => void;
-  deleteAllPlayers: () => void;
-  addRebuy: (id: string) => void;
-  removeRebuy: (id: string) => void;
-  updateBlackCoins: (id: string, count: number) => void;
-  getPlayerByName: (name: string) => Player | undefined;
-  requestRebuy: (id: string) => void;
-  approveRebuy: (id: string) => void;
+  createPlayer: (name: string) => Promise<void>;
+  deletePlayer: (id: string) => Promise<void>;
+  deleteAllPlayers: () => Promise<void>;
+  addRebuy: (id: string) => Promise<void>;
+  removeRebuy: (id: string) => Promise<void>;
+  updateBlackCoins: (id: string, count: number) => Promise<void>;
+  requestRebuy: (id: string) => Promise<void>;
+  approveRebuy: (id: string) => Promise<void>;
 }
 
 export const GameContext = createContext<GameContextType | undefined>(undefined);
+
+/* ------------------ helpers ------------------ */
+
+const normalizeName = (name: string) =>
+  name.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/* ------------------ provider ------------------ */
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const firestore = useFirestore();
   const auth = useAuth();
   const { user, isUserLoading: isAuthLoading } = useFirebaseUser();
   const { toast } = useToast();
-  
+
+  /* ---------- auth init (strict-mode safe) ---------- */
+  const didInitAuth = useRef(false);
+
   useEffect(() => {
+    if (didInitAuth.current) return;
     if (auth && !user && !isAuthLoading) {
-        initiateAnonymousSignIn(auth);
+      didInitAuth.current = true;
+      initiateAnonymousSignIn(auth);
     }
   }, [auth, user, isAuthLoading]);
 
+  /* ---------- collection ---------- */
   const playersColRef = useMemo(() => {
     if (!firestore || !user) return null;
-    return collection(firestore, 'players') as CollectionReference<Omit<Player, 'id'>>;
+    return collection(
+      firestore,
+      'players'
+    ) as CollectionReference<Omit<Player, 'id'>>;
   }, [firestore, user]);
 
-  const { data: players, isLoading: isPlayersLoading } = useCollection<Player>(
-    playersColRef
-  );
+  const { data: players = [], isLoading: isPlayersLoading } =
+    useCollection<Player>(playersColRef);
 
-  const getPlayerByName = useCallback(
-    (name: string) => {
-        if (!name) return undefined;
-        return players?.find(p => p.name.toLowerCase() === name.toLowerCase());
-    },
-    [players]
-  );
+  /* ---------- core actions ---------- */
 
-  const addPlayer = useCallback(
-    (name: string) => {
-      if (!firestore || !playersColRef) return;
-      if (getPlayerByName(name)) {
-        toast({
-          title: 'Player already exists',
-          description: `A player named ${name} is already at the table. Player names must be unique (case-insensitive).`,
-          variant: 'destructive',
-        });
-        return;
-      }
-      const now = Timestamp.now();
-      const newPlayer: Omit<Player, 'id'> = {
-        name,
-        rebuyTimestamps: [now],
-        blackCoins: 0,
-        createdAt: now,
-        hasPendingRebuyRequest: false,
-      };
-
-      addDoc(playersColRef, newPlayer).catch(serverError => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: playersColRef.path,
-            operation: 'create',
-            requestResourceData: newPlayer,
-        }));
-      });
-
-      toast({
-        title: 'Player Added',
-        description: `${name} has joined the game.`,
-      });
-    },
-    [firestore, playersColRef, getPlayerByName, toast]
-  );
+  const createPlayer = useCallback(
+    async (name: string) => {
+      if (!firestore || !playersColRef || !name) return;
   
-  const findOrCreatePlayer = useCallback(async (name: string): Promise<void> => {
-    if (!firestore || !playersColRef || !name) return;
-  
-    const q = query(playersColRef, where("name", "==", name));
+        const normalized = normalizeName(name);
+        const playerRef = doc(playersColRef, normalized);
     
-    try {
-      const querySnapshot = await getDocsFirestore(q);
+        const playerDoc = await getDoc(playerRef);
 
-      if (!querySnapshot.empty) {
-          return;
-      }
-
-      const now = Timestamp.now();
-      const newPlayer: Omit<Player, 'id'> = {
-          name,
-          rebuyTimestamps: [now],
-          blackCoins: 0,
-          createdAt: now,
-          hasPendingRebuyRequest: false,
-      };
-      
-      await addDoc(playersColRef, newPlayer);
-
-    } catch (error) {
-        console.error("Error finding or creating player:", error);
-        if (error instanceof Error && 'code' in error && (error as any).code === 'permission-denied') {
-             const permissionError = new FirestorePermissionError({
-                path: playersColRef.path,
-                operation: 'create',
-            });
-            errorEmitter.emit('permission-error', permissionError);
+        if (playerDoc.exists()) {
+            // Player already exists, no need to create
+            return;
         }
-    }
-  }, [firestore, playersColRef]);
 
+        const now = Timestamp.now();
+        const newPlayer: Omit<Player, 'id'> = {
+            name,
+            rebuyTimestamps: [now],
+            blackCoins: 0,
+            createdAt: now,
+            hasPendingRebuyRequest: false,
+        };
+  
+        try {
+            await setDoc(playerRef, newPlayer, { merge: false });
+    
+            toast({
+            title: 'Player Added',
+            description: `${name} has joined the game.`,
+            });
+        } catch (err) {
+            errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: playerRef.path,
+                operation: 'create',
+                requestResourceData: newPlayer,
+            })
+            );
+        }
+    },
+    [firestore, playersColRef, toast]
+  );
 
   const deletePlayer = useCallback(
-    (id: string) => {
+    async (id: string) => {
       if (!firestore) return;
-      const playerDocRef = doc(firestore, 'players', id);
-      const player = players?.find(p => p.id === id);
-
-      deleteDoc(playerDocRef).catch(serverError => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: playerDocRef.path,
-            operation: 'delete',
-        }));
-      });
-
+      const player = players.find(p => p.id === id);
+      await deleteDoc(doc(firestore, 'players', id));
       if (player) {
         toast({
-          title: 'Player Removed',
-          description: `${player.name} has been removed from the game.`,
+            title: 'Player Removed',
+            description: `${player.name} has been removed from the game.`,
         });
       }
     },
@@ -150,49 +147,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteAllPlayers = useCallback(async () => {
-    if (!firestore || !playersColRef || !players || players.length === 0) return;
+    if (!firestore || !playersColRef) return;
 
-    try {
-        const batch = writeBatch(firestore);
-        const q = query(playersColRef);
-        const snapshot = await getDocs(q);
-        
-        snapshot.docs.forEach(doc => {
-            batch.delete(doc.ref);
-        });
+    const batch = writeBatch(firestore);
+    players.forEach(p => {
+      batch.delete(doc(playersColRef, p.id));
+    });
 
-        await batch.commit();
+    await batch.commit();
 
-        toast({
-            title: 'Game Reset',
-            description: 'All players have been removed for the next game.',
-            variant: 'destructive',
-        });
-    } catch(serverError) {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: playersColRef.path,
-            operation: 'delete',
-        }));
-    }
+    toast({
+      title: 'Game Reset',
+      description: 'All players have been removed.',
+      variant: 'destructive',
+    });
   }, [firestore, playersColRef, players, toast]);
 
-
   const addRebuy = useCallback(
-    (id: string) => {
+    async (id: string) => {
       if (!firestore) return;
-      const player = players?.find(p => p.id === id);
+      const player = players.find(p => p.id === id);
+      await updateDoc(doc(firestore, 'players', id), {
+        rebuyTimestamps: arrayUnion(Timestamp.now()),
+      });
       if (player) {
-        const playerDocRef = doc(firestore, 'players', id);
-        const updateData = { 
-            rebuyTimestamps: arrayUnion(Timestamp.now()),
-        };
-        updateDoc(playerDocRef, updateData).catch(serverError => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: playerDocRef.path,
-                operation: 'update',
-                requestResourceData: updateData,
-            }));
-        });
         toast({
           title: 'Rebuy Confirmed',
           description: `A rebuy was added for ${player.name}.`,
@@ -203,106 +181,82 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const removeRebuy = useCallback(
-    (id: string) => {
+    async (id: string) => {
       if (!firestore) return;
-      const player = players?.find(p => p.id === id);
-      if (player && player.rebuyTimestamps.length > 0) {
-        const playerDocRef = doc(firestore, 'players', id);
-        
-        // Create a new array with the last timestamp removed
-        const newTimestamps = [...player.rebuyTimestamps].sort((a,b) => a.toMillis() - b.toMillis()).slice(0, -1);
+      const player = players.find(p => p.id === id);
+      if (!player || player.rebuyTimestamps.length <= 1) return;
 
-        const updateData = { rebuyTimestamps: newTimestamps };
-        updateDoc(playerDocRef, updateData).catch(serverError => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: playerDocRef.path,
-                operation: 'update',
-                requestResourceData: updateData,
-            }));
-        });
-        toast({
-          title: 'Last Buy-in Removed',
-          description: `The last buy-in for ${player.name} has been removed.`,
-          variant: 'destructive'
-        });
-      }
+      const updated = [...player.rebuyTimestamps]
+        .sort((a, b) => a.toMillis() - b.toMillis())
+        .slice(0, -1);
+
+      await updateDoc(doc(firestore, 'players', id), {
+        rebuyTimestamps: updated,
+      });
+
+      toast({
+        title: 'Last Buy-in Removed',
+        description: `The last buy-in for ${player.name} has been removed.`,
+        variant: 'destructive'
+      });
     },
     [firestore, players, toast]
   );
 
   const updateBlackCoins = useCallback(
-    (id: string, count: number) => {
-      if (!firestore) return;
-      if(isNaN(count) || count < 0) return;
-      const playerDocRef = doc(firestore, 'players', id);
-      const updateData = { blackCoins: count };
-      updateDoc(playerDocRef, updateData).catch(serverError => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: playerDocRef.path,
-            operation: 'update',
-            requestResourceData: updateData,
-        }));
+    async (id: string, count: number) => {
+      if (!firestore || count < 0 || isNaN(count)) return;
+      await updateDoc(doc(firestore, 'players', id), {
+        blackCoins: count,
       });
     },
     [firestore]
   );
 
-  const requestRebuy = useCallback((id: string) => {
-    if (!firestore) return;
-    const player = players?.find(p => p.id === id);
-    if (player) {
-        const playerDocRef = doc(firestore, 'players', id);
-        const updateData = { hasPendingRebuyRequest: true };
-        updateDoc(playerDocRef, updateData).catch(serverError => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: playerDocRef.path,
-                operation: 'update',
-                requestResourceData: updateData,
-            }));
-        });
-        toast({
-            title: 'Request Sent',
-            description: 'Your rebuy request has been sent to the dealer for approval.',
-        });
-    }
-  }, [firestore, toast, players]);
-  
-  const approveRebuy = useCallback((id: string) => {
-    if (!firestore) return;
-    const player = players?.find(p => p.id === id);
-    if (player) {
-      const playerDocRef = doc(firestore, 'players', id);
-      const updateData = { 
-          rebuyTimestamps: arrayUnion(Timestamp.now()),
-          hasPendingRebuyRequest: false 
-      };
-      updateDoc(playerDocRef, updateData).catch(serverError => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: playerDocRef.path,
-              operation: 'update',
-              requestResourceData: updateData,
-          }));
+  const requestRebuy = useCallback(
+    async (id: string) => {
+      if (!firestore) return;
+      await updateDoc(doc(firestore, 'players', id), {
+        hasPendingRebuyRequest: true,
       });
       toast({
-          title: 'Rebuy Approved',
-          description: `Rebuy for ${player.name} has been approved.`,
+        title: 'Request Sent',
+        description: 'Your rebuy request has been sent to the dealer for approval.',
       });
-    }
-  }, [firestore, players, toast]);
-  
+    },
+    [firestore, toast]
+  );
 
-  const value = useMemo(
+  const approveRebuy = useCallback(
+    async (id: string) => {
+      if (!firestore) return;
+      const player = players.find(p => p.id === id);
+      await updateDoc(doc(firestore, 'players', id), {
+        rebuyTimestamps: arrayUnion(Timestamp.now()),
+        hasPendingRebuyRequest: false,
+      });
+       if (player) {
+        toast({
+            title: 'Rebuy Approved',
+            description: `Rebuy for ${player.name} has been approved.`,
+        });
+    }
+    },
+    [firestore, players, toast]
+  );
+
+  /* ---------- context ---------- */
+
+  const value = useMemo<GameContextType>(
     () => ({
-      players: players ?? [],
+      players,
       isLoading: isAuthLoading || isPlayersLoading,
-      addPlayer,
-      findOrCreatePlayer,
+      createPlayer,
       deletePlayer,
       deleteAllPlayers,
       addRebuy,
       removeRebuy,
       updateBlackCoins,
-      getPlayerByName,
       requestRebuy,
       approveRebuy,
     }),
@@ -310,14 +264,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       players,
       isAuthLoading,
       isPlayersLoading,
-      addPlayer,
-      findOrCreatePlayer,
+      createPlayer,
       deletePlayer,
       deleteAllPlayers,
       addRebuy,
       removeRebuy,
       updateBlackCoins,
-      getPlayerByName,
       requestRebuy,
       approveRebuy,
     ]
@@ -326,10 +278,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
 
+/* ------------------ hook ------------------ */
+
 export function useGame() {
-  const context = useContext(GameContext);
-  if (context === undefined) {
+  const ctx = useContext(GameContext);
+  if (!ctx) {
     throw new Error('useGame must be used within a GameProvider');
   }
-  return context;
+  return ctx;
 }

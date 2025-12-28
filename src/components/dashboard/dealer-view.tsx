@@ -11,15 +11,27 @@ import { DollarSign, Users, Clock, Trash, Banknote, Shuffle } from "lucide-react
 import { ConfirmationDialog } from "../shared/confirmation-dialog";
 import { cn } from "@/lib/utils";
 import { DistroSuggestion } from "./distro-suggestion";
+import { useToast } from "@/hooks/use-toast";
 
 function AddPlayerForm() {
     const [newPlayerName, setNewPlayerName] = useState("");
-    const { addPlayer } = useGame();
+    const { createPlayer, players } = useGame();
+    const { toast } = useToast();
   
     const handleAddPlayer = (e: React.FormEvent) => {
       e.preventDefault();
-      if (newPlayerName.trim()) {
-        addPlayer(newPlayerName.trim());
+      const trimmedName = newPlayerName.trim();
+      if (trimmedName) {
+        const playerExists = players.some(p => p.name.toLowerCase() === trimmedName.toLowerCase());
+        if (playerExists) {
+            toast({
+                title: 'Player already exists',
+                description: `A player named ${trimmedName} is already at the table. Player names must be unique (case-insensitive).`,
+                variant: 'destructive',
+            });
+            return;
+        }
+        createPlayer(trimmedName);
         setNewPlayerName("");
       }
     };

@@ -11,20 +11,20 @@ export const dynamic = 'force-dynamic';
 function PlayerPageContent() {
   const searchParams = useSearchParams();
   const name = searchParams.get('name');
-  const { findOrCreatePlayer, getPlayerByName, isLoading } = useGame();
+  const { createPlayer, players, isLoading } = useGame();
 
   // This effect runs once when the component mounts with a valid name.
   // It ensures the player exists in Firestore.
   useEffect(() => {
     if (name) {
-      findOrCreatePlayer(name);
+      createPlayer(name);
     }
     // The dependency array ensures this only re-runs if the name or function reference changes.
-  }, [name, findOrCreatePlayer]); 
+  }, [name, createPlayer]); 
 
   // Attempt to get the player from the current state. This will be undefined
   // until the data loads from Firestore.
-  const player = getPlayerByName(name || '');
+  const player = players.find(p => p.name === name);
 
   if (!name) {
     return (

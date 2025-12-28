@@ -46,21 +46,23 @@ function PlayerViewSkeleton() {
 }
 
 export function PlayerView({ playerName }: PlayerViewProps) {
-  const { getPlayerByName, requestRebuy, isLoading } = useGame();
+  const { players, requestRebuy, isLoading } = useGame();
   
   if (isLoading) {
     return <PlayerViewSkeleton />;
   }
 
-  const player = getPlayerByName(playerName);
+  const player = players.find(p => p.name === playerName);
 
   if (!player) {
     return (
       <div className="flex-1 flex items-center justify-center text-center py-10">
-        <h2 className="text-2xl font-semibold">Waiting for the dealer...</h2>
-        <p className="text-muted-foreground mt-2">
-          Your name will appear on the list once the dealer has added you to the game.
-        </p>
+        <div>
+            <h2 className="text-2xl font-semibold">Waiting for the dealer...</h2>
+            <p className="text-muted-foreground mt-2">
+            Your name will appear on the list once the dealer has added you to the game.
+            </p>
+        </div>
       </div>
     );
   }

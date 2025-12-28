@@ -26,7 +26,7 @@ export function RoleSelector() {
   const [playerName, setPlayerName] = useState("");
   const [savedPlayerName, setSavedPlayerName] = useState<string | null>(null);
   const router = useRouter();
-  const { getPlayerByName } = useGame();
+  const { findOrCreatePlayer } = useGame();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export function RoleSelector() {
     }
   }, []);
 
-  const handlePlayerJoin = (e: React.FormEvent) => {
+  const handlePlayerJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = playerName.trim();
     if (trimmedName) {
@@ -50,7 +50,14 @@ export function RoleSelector() {
       } catch (e) {
         console.error("Could not set item in localStorage.", e);
       }
-      router.push(`/player?name=${encodeURIComponent(trimmedName)}`);
+      
+      // Create the player first, then navigate.
+      await findOrCreatePlayer(trimmedName);
+      
+      // A small delay to allow state to propagate before navigating.
+      setTimeout(() => {
+        router.push(`/player?name=${encodeURIComponent(trimmedName)}`);
+      }, 100);
     }
   };
   

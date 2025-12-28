@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from "@/firebase";
 import { GameProvider } from "@/contexts/game-context";
 import { SyncStatusIndicator } from "@/components/shared/sync-status-indicator";
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 const fontBody = Inter({ subsets: ['latin'], variable: '--font-body' });
 const fontHeadline = Space_Grotesk({ subsets: ['latin'], variable: '--font-headline' });
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {children}
               <Toaster />
               <SyncStatusIndicator />
+              <FirebaseErrorListener />
             </>
           </GameProvider>
         </FirebaseClientProvider>

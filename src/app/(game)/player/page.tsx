@@ -1,12 +1,11 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
-import { useEffect } from 'react';
 
-// Force this page to be dynamically rendered, making it behave like the development environment.
+// Force this page to be dynamically rendered to prevent static pre-rendering issues.
 export const dynamic = 'force-dynamic';
 
 function PlayerPageContent() {
@@ -14,16 +13,19 @@ function PlayerPageContent() {
   const name = searchParams.get('name');
   const { findOrCreatePlayer, getPlayerByName, isLoading } = useGame();
 
-  // This effect ensures the player is found or created when the page loads.
+  // This effect runs once when the component mounts with a valid name.
+  // It ensures the player exists in Firestore.
   useEffect(() => {
     if (name) {
       findOrCreatePlayer(name);
     }
-  }, [name, findOrCreatePlayer]);
+    // The dependency array ensures this only re-runs if the name or function reference changes.
+  }, [name, findOrCreatePlayer]); 
 
+  // Attempt to get the player from the current state. This will be undefined
+  // until the data loads from Firestore.
   const player = getPlayerByName(name || '');
 
-  // If the page is loaded without a name, show an error.
   if (!name) {
     return (
       <div className="flex-1 flex items-center justify-center text-center py-10">
@@ -37,8 +39,10 @@ function PlayerPageContent() {
     );
   }
   
-  // Show a loading screen while the game data is loading from Firestore 
-  // OR while we wait for the specific player to appear in the local state.
+  // Show a loading screen if the game data is loading from Firestore 
+  // OR if we are waiting for the specific player to appear in the local state.
+  // When `useGame`'s `players` array updates, this component will re-render,
+  // `player` will be found, and this condition will become false.
   if (isLoading || !player) {
     return (
       <div className="flex-1 flex items-center justify-center text-center py-10">
@@ -52,14 +56,14 @@ function PlayerPageContent() {
     );
   }
   
-  // Once the player exists, render their view.
+  // Once the player object is available, render their view.
   return <PlayerView playerName={name} />;
 }
 
 
 export default function PlayerPage() {
   return (
-    // Suspense is good practice for pages using searchParams
+    // Suspense is required for pages that use `useSearchParams`.
     <Suspense>
       <PlayerPageContent />
     </Suspense>

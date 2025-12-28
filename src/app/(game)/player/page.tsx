@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
@@ -9,16 +9,14 @@ function PlayerPageContent() {
   const searchParams = useSearchParams();
   const name = searchParams.get('name');
   const { findOrCreatePlayer, getPlayerByName, isLoading } = useGame();
-  const hasRun = useRef(false);
 
   useEffect(() => {
     // This effect ensures the player is created if they don't exist.
-    // It runs only once when the component mounts with a valid name.
-    if (name && !isLoading && !hasRun.current) {
+    // It runs when the component mounts with a valid name.
+    if (name) {
       findOrCreatePlayer(name);
-      hasRun.current = true;
     }
-  }, [name, isLoading, findOrCreatePlayer]);
+  }, [name, findOrCreatePlayer]);
 
   if (!name) {
     return (
@@ -36,8 +34,8 @@ function PlayerPageContent() {
   // Attempt to get the player from the current game state
   const player = getPlayerByName(name);
   
-  // If data is still loading OR if the player hasn't appeared in the state yet, show the loading screen.
-  // The `!player` check handles the delay between when a player is created in Firestore and when the local state updates.
+  // If the game data is still loading from Firestore OR if the specific player 
+  // hasn't been found/created in the local state yet, show the loading screen.
   if (isLoading || !player) {
     return (
       <div className="flex-1 flex items-center justify-center text-center py-10">

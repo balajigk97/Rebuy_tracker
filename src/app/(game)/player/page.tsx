@@ -1,9 +1,13 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PlayerView } from '@/components/dashboard/player-view';
 import { useGame } from '@/contexts/game-context';
+import { useEffect } from 'react';
+
+// Force this page to be dynamically rendered
+export const dynamic = 'force-dynamic';
 
 function PlayerPageContent() {
   const searchParams = useSearchParams();

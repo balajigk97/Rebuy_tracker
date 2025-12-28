@@ -1,6 +1,5 @@
 
 import { AppHeader } from "@/components/dashboard/app-header";
-import { SyncStatusIndicator } from "@/components/shared/sync-status-indicator";
 import { Suspense } from "react";
 
 export default function GameLayout({
@@ -16,7 +15,6 @@ export default function GameLayout({
       <main className="flex-1 container mx-auto py-8 flex flex-col">
         {children}
       </main>
-      <SyncStatusIndicator />
     </div>
   );
 }

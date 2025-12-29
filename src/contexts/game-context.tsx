@@ -36,6 +36,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 export interface GameContextType {
     players: Player[];
     isLoading: boolean;
+    isReady: boolean;
     createPlayer: (name: string) => Promise<void>;
     deletePlayer: (id: string) => Promise<void>;
     deleteAllPlayers: () => Promise<void>;
@@ -359,6 +360,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         () => ({
             players: players || [], // Ensure players is always an array
             isLoading: isAuthLoading || isPlayersLoading,
+            isReady: !!playersColRef && !!user && !isAuthLoading,
             createPlayer,
             deletePlayer,
             deleteAllPlayers,
@@ -370,6 +372,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         }),
         [
             players,
+            playersColRef,
+            user,
             isAuthLoading,
             isPlayersLoading,
             createPlayer,

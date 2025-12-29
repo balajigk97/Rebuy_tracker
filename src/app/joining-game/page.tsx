@@ -9,17 +9,18 @@ export default function JoiningGamePage() {
     const router = useRouter();
 
     useEffect(() => {
-        // If auth state is loaded and there's no user, it means sign-in failed or is not attempted.
-        // Redirect to the home page to let the user choose a role.
-        if (!isUserLoading && !user) {
-            router.replace('/');
+        // If auth state is still loading, do nothing and wait.
+        if (isUserLoading) {
+            return;
         }
         
-        // If the user *is* logged in, this page's job is done.
-        // However, we don't know where they were trying to go.
-        // The auth guard in the layout will handle the redirect back to the intended page.
-        // If they land here with a user, we can send them home as a fallback.
-        if (!isUserLoading && user) {
+        // Once loading is complete, if there's a user, they are authenticated.
+        // Redirect them back to the home page to select their role again.
+        if (user) {
+             router.replace('/');
+        } else {
+        // If there's no user, something is wrong with the sign-in process.
+        // Send them home to restart the flow.
              router.replace('/');
         }
 

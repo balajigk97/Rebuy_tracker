@@ -7,7 +7,6 @@ import React, {
   useCallback,
   useEffect,
   useRef,
-  ReactNode,
 } from 'react';
 import {
   collection,
@@ -64,8 +63,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const didInitAuth = useRef(false);
 
   useEffect(() => {
+    // Prevent re-running the effect.
     if (didInitAuth.current) return;
-    // Ensure services are available before attempting to sign in
+    
+    // Only run if auth is initialized, there is no user, and it's not currently loading.
     if (auth && firestore && !user && !isAuthLoading) {
       didInitAuth.current = true;
       initiateAnonymousSignIn(auth);
@@ -96,7 +97,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         const playerDoc = await getDoc(playerRef);
 
         if (playerDoc.exists()) {
-            // Player already exists, no need to create
             return;
         }
 
@@ -109,14 +109,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             hasPendingRebuyRequest: false,
         };
   
-        try {
-            await setDoc(playerRef, newPlayer, { merge: false });
-    
-            toast({
-            title: 'Player Added',
-            description: `${name} has joined the game.`,
-            });
-        } catch (err) {
+        setDoc(playerRef, newPlayer, { merge: false }).catch(err => {
             errorEmitter.emit(
             'permission-error',
             new FirestorePermissionError({
@@ -125,7 +118,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                 requestResourceData: newPlayer,
             })
             );
-        }
+        });
+    
+        toast({
+        title: 'Player Added',
+        description: `${name} has joined the game.`,
+        });
     },
     [firestore, playersColRef, toast]
   );
@@ -134,7 +132,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     async (id: string) => {
       if (!firestore) return;
       const player = players.find(p => p.id === id);
-      await deleteDoc(doc(firestore, 'players', id));
+      deleteDoc(doc(firestore, 'players', id)).catch(err => {
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: doc(firestore, 'players', id).path,
+                operation: 'delete',
+            })
+        );
+      });
       if (player) {
         toast({
             title: 'Player Removed',
@@ -176,7 +182,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         console.error("Error deleting all players:", err);
         const permissionError = new FirestorePermissionError({
             path: playersColRef.path,
-            operation: 'list', // The failure could be on getDocs (list)
+            operation: 'list', 
         });
         errorEmitter.emit('permission-error', permissionError);
     }
@@ -186,8 +192,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     async (id: string) => {
       if (!firestore) return;
       const player = players.find(p => p.id === id);
-      await updateDoc(doc(firestore, 'players', id), {
-        rebuyTimestamps: arrayUnion(Timestamp.now()),
+      const playerRef = doc(firestore, 'players', id);
+      const updateData = { rebuyTimestamps: arrayUnion(Timestamp.now()) };
+
+      updateDoc(playerRef, updateData).catch(err => {
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: playerRef.path,
+                operation: 'update',
+                requestResourceData: updateData
+            })
+        );
       });
       if (player) {
         toast({
@@ -205,12 +221,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const player = players.find(p => p.id === id);
       if (!player || player.rebuyTimestamps.length <= 1) return;
 
-      const updated = [...player.rebuyTimestamps]
+      const updatedTimestamps = [...player.rebuyTimestamps]
         .sort((a, b) => a.toMillis() - b.toMillis())
         .slice(0, -1);
+      
+      const playerRef = doc(firestore, 'players', id);
+      const updateData = { rebuyTimestamps: updatedTimestamps };
 
-      await updateDoc(doc(firestore, 'players', id), {
-        rebuyTimestamps: updated,
+      updateDoc(playerRef, updateData).catch(err => {
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: playerRef.path,
+                operation: 'update',
+                requestResourceData: updateData
+            })
+        );
       });
 
       toast({
@@ -225,8 +251,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const updateBlackCoins = useCallback(
     async (id: string, count: number) => {
       if (!firestore || count < 0 || isNaN(count)) return;
-      await updateDoc(doc(firestore, 'players', id), {
-        blackCoins: count,
+      const playerRef = doc(firestore, 'players', id);
+      const updateData = { blackCoins: count };
+
+      updateDoc(playerRef, updateData).catch(err => {
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: playerRef.path,
+                operation: 'update',
+                requestResourceData: updateData
+            })
+        );
       });
     },
     [firestore]
@@ -235,8 +271,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const requestRebuy = useCallback(
     async (id: string) => {
       if (!firestore) return;
-      await updateDoc(doc(firestore, 'players', id), {
-        hasPendingRebuyRequest: true,
+      const playerRef = doc(firestore, 'players', id);
+      const updateData = { hasPendingRebuyRequest: true };
+
+      updateDoc(playerRef, updateData).catch(err => {
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: playerRef.path,
+                operation: 'update',
+                requestResourceData: updateData
+            })
+        );
       });
       toast({
         title: 'Request Sent',
@@ -250,10 +296,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     async (id: string) => {
       if (!firestore) return;
       const player = players.find(p => p.id === id);
-      await updateDoc(doc(firestore, 'players', id), {
+      const playerRef = doc(firestore, 'players', id);
+      const updateData = {
         rebuyTimestamps: arrayUnion(Timestamp.now()),
         hasPendingRebuyRequest: false,
+      };
+
+      updateDoc(playerRef, updateData).catch(err => {
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: playerRef.path,
+                operation: 'update',
+                requestResourceData: updateData
+            })
+        );
       });
+
        if (player) {
         toast({
             title: 'Rebuy Approved',

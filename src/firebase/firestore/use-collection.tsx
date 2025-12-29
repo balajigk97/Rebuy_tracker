@@ -37,7 +37,6 @@ export interface UseCollectionResult<T> {
  * @template T Optional type for document data. Defaults to any.
  * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} targetRefOrQuery -
  * The Firestore CollectionReference or Query. Waits if null/undefined.
- * @param {(data: WithId<any>[]) => T[]} [transformer] - An optional function to transform the data.
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
 export function useCollection<T = any>(
@@ -62,10 +61,10 @@ export function useCollection<T = any>(
     const unsubscribe = onSnapshot(
       targetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: WithId<T>[] = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as WithId<T>[];
+        const results = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        })) as T[];
         
         setData(results);
         setError(null);

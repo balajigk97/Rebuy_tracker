@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlayerList } from "./player-list";
-import { Users, Trash, Shuffle } from "lucide-react";
+import { Users, Trash } from "lucide-react";
 import { ConfirmationDialog } from "../shared/confirmation-dialog";
 import { DistroSuggestion } from "./distro-suggestion";
 import { useToast } from "@/hooks/use-toast";

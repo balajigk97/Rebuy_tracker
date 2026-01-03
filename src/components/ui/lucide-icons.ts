@@ -15,5 +15,6 @@ export {
     PlusCircle,
     Trash2,
     Info,
-    CheckCircle
+    CheckCircle,
+    Landmark
 } from "lucide-react";

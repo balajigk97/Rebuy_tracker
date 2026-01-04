@@ -40,7 +40,7 @@ export function Totals() {
                     </div>
                     <div>
                         <p className="text-sm text-muted-foreground">Total Pot</p>
-                        <p className={cn("text-4xl font-bold transition-colors", !totalsMatch && "text-destructive")}>${totalPot}</p>
+                        <p className={cn("text-4xl font-bold transition-colors", !totalsMatch && "text-destructive")}>${totalPot.toFixed(2)}</p>
                     </div>
                 </div>
                 <Separator />

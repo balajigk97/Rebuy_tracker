@@ -201,14 +201,15 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                       <TableCell className="text-center">
                         <Input
                           type="number"
+                          step="0.01"
                           className="w-20 mx-auto"
                           value={player.blackCoins}
-                          onChange={(e) => updateBlackCoins(player.id, parseInt(e.target.value, 10) || 0)}
+                          onChange={(e) => updateBlackCoins(player.id, parseFloat(e.target.value) || 0)}
                           min={0}
                         />
                       </TableCell>
                       <TableCell className="text-center text-lg font-bold">
-                        {player.blackCoins - (player.rebuyTimestamps?.length ?? 0)}
+                        {(player.blackCoins - (player.rebuyTimestamps?.length ?? 0)).toFixed(2)}
                       </TableCell>
                     </>
                   )}

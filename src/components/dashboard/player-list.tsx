@@ -149,20 +149,15 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                     <TableCell>
                       <div className="flex items-center justify-center gap-2">
                         {player.hasPendingRebuyRequest ? (
-                            <ConfirmationDialog
-                              title={`Approve Re-buy for ${player.name}?`}
-                              description="This will add one re-buy to the player's total and clear their request."
-                              onConfirm={() => approveRebuy(player.id)}
+                            <Button
+                                size="sm"
+                                aria-label={`Approve re-buy for ${player.name}`}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => approveRebuy(player.id)}
                             >
-                              <Button
-                                  size="sm"
-                                  aria-label={`Approve re-buy for ${player.name}`}
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                              >
-                                  <CheckCircle className="h-5 w-5 md:mr-2" />
-                                  <span className="hidden md:inline">Approve</span>
-                              </Button>
-                            </ConfirmationDialog>
+                                <CheckCircle className="h-5 w-5 md:mr-2" />
+                                <span className="hidden md:inline">Approve</span>
+                            </Button>
                         ) : (
                           <ConfirmationDialog
                             title={`Add Re-buy for ${player.name}?`}

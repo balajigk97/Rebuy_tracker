@@ -70,7 +70,17 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        const path = 'path' in targetRefOrQuery ? (targetRefOrQuery as CollectionReference).path : 'unknown_path_for_query';
+        let path = 'unknown_path_for_query';
+        // A CollectionReference has a 'path' property. This is the most reliable way.
+        if ('path' in targetRefOrQuery && typeof targetRefOrQuery.path === 'string') {
+            path = targetRefOrQuery.path;
+        } 
+        // A Query object might have an internal _query object with path info. This is not
+        // guaranteed by the public API but is a common workaround for debugging.
+        else if ((targetRefOrQuery as any)._query?.path?.segments) {
+            path = (targetRefOrQuery as any)._query.path.segments.join('/');
+        }
+
         const contextualError = new FirestorePermissionError({
           operation: 'list',
           path: path,

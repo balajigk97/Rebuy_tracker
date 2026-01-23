@@ -6,26 +6,22 @@
  * document can contain a 'players' subcollection.
  *
  * Key Security Decisions:
- * - Public Read Access: All users (authenticated or not) can read table and player data.
- *   This is suitable for a non-sensitive game where standings are public.
- * - Authenticated Writes: Only authenticated users (via anonymous auth) can create,
- *   update, or delete tables and players. This prevents unauthorized modification
- *   of game state.
+ * - Authenticated Access Only: All database operations (read, write, create, delete)
+ *   require the user to be authenticated via Firebase Authentication (including anonymous).
+ *   This ensures that only users running the application can interact with the game data.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     match /tables/{tableId} {
-      // Allow anyone to see the list of tables, but only signed-in users to create/delete them.
-      allow read: if true;
-      allow write: if isSignedIn();
+      // Allow signed-in users to read and write tables.
+      allow read, write: if isSignedIn();
 
       // Rules for the 'players' subcollection within each table.
       match /players/{playerId} {
-        // Allow anyone to read player data, but only signed-in users to modify it.
-        allow read: if true;
-        allow write: if isSignedIn();
+        // Allow signed-in users to read and write player data.
+        allow read, write: if isSignedIn();
       }
     }
 

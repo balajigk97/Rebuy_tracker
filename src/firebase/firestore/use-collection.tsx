@@ -70,9 +70,10 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
+        const path = 'path' in targetRefOrQuery ? (targetRefOrQuery as CollectionReference).path : 'unknown_path_for_query';
         const contextualError = new FirestorePermissionError({
           operation: 'list',
-          path: targetRefOrQuery.path,
+          path: path,
         });
         errorEmitter.emit('permission-error', contextualError);
         setError(contextualError); // Still set local error for component-level handling if needed

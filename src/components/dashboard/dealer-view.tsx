@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlayerList } from "./player-list";
-import { Users, Trash } from "lucide-react";
+import { Users, Trash, XCircle } from "lucide-react";
 import { ConfirmationDialog } from "../shared/confirmation-dialog";
 import { DistroSuggestion } from "./distro-suggestion";
 import { useToast } from "@/hooks/use-toast";
 import { Totals } from "./totals";
+import { useRouter } from "next/navigation";
 
 function AddPlayerForm() {
     const [newPlayerName, setNewPlayerName] = useState("");
@@ -79,6 +80,36 @@ function ResetGame() {
     )
 }
 
+function CloseTable() {
+    const { deleteTable } = useGame();
+    const router = useRouter();
+
+    const handleCloseTable = async () => {
+        await deleteTable();
+        router.push('/');
+    };
+
+    return (
+        <Card className="border-destructive">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive"><XCircle /> Close Table</CardTitle>
+                <CardDescription>Permanently remove this table and all of its players.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ConfirmationDialog
+                    title="Close and Remove Table?"
+                    description="Are you sure you want to close this table? All players and re-buys will be deleted permanently. This action cannot be undone."
+                    onConfirm={handleCloseTable}
+                >
+                    <Button variant="destructive" className="w-full">
+                        Close Table
+                    </Button>
+                </ConfirmationDialog>
+            </CardContent>
+        </Card>
+    );
+}
+
 export function DealerView() {
   const { players } = useGame();
   return (
@@ -89,6 +120,7 @@ export function DealerView() {
           <AddPlayerForm />
           <Totals />
           <ResetGame />
+          <CloseTable />
         </div>
       
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

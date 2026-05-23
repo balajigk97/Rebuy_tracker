@@ -1,7 +1,7 @@
 'use client';
 
 import { AppHeader } from '@/components/dashboard/app-header';
-import { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, use } from 'react';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { GameProvider } from '@/contexts/game-context';
@@ -56,13 +56,14 @@ export default function TableLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { tableId: string };
+  params: Promise<{ tableId: string }>;
 }) {
+  const resolvedParams = use(params);
   return (
     // GameProvider now wraps only the specific table layout
-    <GameProvider tableId={params.tableId}>
+    <GameProvider tableId={resolvedParams.tableId}>
       <div className="flex flex-col min-h-screen">
-        <GameLayoutContent tableId={params.tableId}>{children}</GameLayoutContent>
+        <GameLayoutContent tableId={resolvedParams.tableId}>{children}</GameLayoutContent>
       </div>
     </GameProvider>
   );

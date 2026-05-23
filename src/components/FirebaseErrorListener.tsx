@@ -93,7 +93,7 @@ export function FirebaseErrorListener() {
                 <div className="flex items-start">
                     <strong className="w-32 mt-1">Authenticated As:</strong>
                     <code className="flex-1 font-mono text-xs bg-background p-2 rounded">
-                       {auth ? `UID: ${auth.uid}` : 'Not Authenticated'}
+                       {auth ? `UID: ${(auth as any).uid}` : 'Not Authenticated'}
                     </code>
                 </div>
             </div>

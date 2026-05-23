@@ -45,6 +45,7 @@ export interface GameContextType {
     updateBlackCoins: (id: string, count: number) => Promise<void>;
     requestRebuy: (id: string) => Promise<void>;
     approveRebuy: (id: string) => Promise<void>;
+    deleteTable: () => Promise<void>;
 }
 
 export const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -54,9 +55,10 @@ const normalizeName = (name: string) =>
 
 interface GameProviderProps {
     children: React.ReactNode;
+    tableId?: string;
 }
 
-export function GameProvider({ children }: GameProviderProps) {
+export function GameProvider({ children, tableId }: GameProviderProps) {
     const { firestore, auth, user, isUserLoading: isAuthLoading } = useFirebase();
     const { toast } = useToast();
     const didInitAuth = useRef(false);
@@ -69,14 +71,39 @@ export function GameProvider({ children }: GameProviderProps) {
         }
     }, [auth, firestore, user, isAuthLoading]);
 
+    useEffect(() => {
+        if (!firestore || !tableId || !user) return;
+        const registerTable = async () => {
+            try {
+                const tableRef = doc(firestore, 'tables', tableId);
+                await setDoc(tableRef, {
+                    id: tableId,
+                    lastActive: Timestamp.now()
+                }, { merge: true });
+            } catch (err) {
+                console.error("Error registering table:", err);
+            }
+        };
+        registerTable();
+    }, [firestore, tableId, user]);
+
     const playersColRef = useMemo(() => {
         if (!firestore || !user) return null;
-        // Points to the top-level 'players' collection
+        if (tableId) {
+            // Scope players to a specific table in Firestore
+            return collection(
+                firestore,
+                'tables',
+                tableId,
+                'players'
+            ) as CollectionReference<Omit<Player, 'id'>>;
+        }
+        // Fallback to top-level 'players' collection
         return collection(
             firestore,
             'players'
         ) as CollectionReference<Omit<Player, 'id'>>;
-    }, [firestore, user]);
+    }, [firestore, user, tableId]);
 
     const { data: players = [], isLoading: isPlayersLoading } =
         useCollection<Player>(playersColRef);
@@ -121,7 +148,7 @@ export function GameProvider({ children }: GameProviderProps) {
         async (id: string) => {
             if (!firestore || !playersColRef) return;
             try {
-                const player = players.find(p => p.id === id);
+                const player = (players || []).find(p => p.id === id);
                 await deleteDoc(doc(playersColRef, id));
                 if (player) {
                     toast({ title: 'Player Removed', description: `${player.name} has been removed from the game.` });
@@ -171,7 +198,7 @@ export function GameProvider({ children }: GameProviderProps) {
     }, [firestore, playersColRef]);
 
     const addRebuy = useCallback(async (id: string) => {
-        const player = players.find(p => p.id === id);
+        const player = (players || []).find(p => p.id === id);
         await updatePlayerDoc(id, { rebuyTimestamps: arrayUnion(Timestamp.now()) }, 'addRebuy');
         if (player) {
             toast({ title: 'Rebuy Confirmed', description: `A rebuy was added for ${player.name}.` });
@@ -179,7 +206,7 @@ export function GameProvider({ children }: GameProviderProps) {
     }, [players, updatePlayerDoc, toast]);
 
     const removeRebuy = useCallback(async (id: string) => {
-        const player = players.find(p => p.id === id);
+        const player = (players || []).find(p => p.id === id);
         if (!player || player.rebuyTimestamps.length <= 1) return;
         const updatedTimestamps = [...player.rebuyTimestamps].sort((a, b) => a.toMillis() - b.toMillis()).slice(0, -1);
         await updatePlayerDoc(id, { rebuyTimestamps: updatedTimestamps }, 'removeRebuy');
@@ -197,7 +224,7 @@ export function GameProvider({ children }: GameProviderProps) {
     }, [updatePlayerDoc, toast]);
 
     const approveRebuy = useCallback(async (id: string) => {
-        const player = players.find(p => p.id === id);
+        const player = (players || []).find(p => p.id === id);
         await updatePlayerDoc(id, {
             rebuyTimestamps: arrayUnion(Timestamp.now()),
             hasPendingRebuyRequest: false,
@@ -206,6 +233,19 @@ export function GameProvider({ children }: GameProviderProps) {
             toast({ title: 'Rebuy Approved', description: `Rebuy for ${player.name} has been approved.` });
         }
     }, [players, updatePlayerDoc, toast]);
+
+    const deleteTable = useCallback(async () => {
+        if (!firestore || !tableId) return;
+        try {
+            // Delete all players at this table
+            await deleteAllPlayers();
+            // Delete the table registration document
+            await deleteDoc(doc(firestore, 'tables', tableId));
+            toast({ title: 'Table Closed', description: `Table "${tableId}" has been permanently closed.` });
+        } catch (err) {
+            console.error("Error closing table:", err);
+        }
+    }, [firestore, tableId, deleteAllPlayers, toast]);
 
     const value = useMemo<GameContextType>(
         () => ({
@@ -220,6 +260,7 @@ export function GameProvider({ children }: GameProviderProps) {
             updateBlackCoins,
             requestRebuy,
             approveRebuy,
+            deleteTable,
         }),
         [
             players,
@@ -235,6 +276,7 @@ export function GameProvider({ children }: GameProviderProps) {
             updateBlackCoins,
             requestRebuy,
             approveRebuy,
+            deleteTable,
         ]
     );
 

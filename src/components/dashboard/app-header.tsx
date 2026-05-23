@@ -8,7 +8,7 @@ import { LogOut, User, UserCog } from "lucide-react";
 
 const PLAYER_NAME_KEY = "poker_player_name";
 
-export function AppHeader() {
+export function AppHeader({ tableId }: { tableId?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -40,6 +40,11 @@ export function AppHeader() {
         <Link href="/" className="flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-6 w-6 text-primary"><rect width="256" height="256" fill="none"></rect><path d="M215.4,85.1A32.4,32.4,0,0,0,192,80H151.2L128,42.6,104.8,80H64a32.4,32.4,0,0,0-23.4,5.1,31.5,31.5,0,0,0-5.5,45.2L88,213.3a8,8,0,0,0,14.4-4.2L86.2,160h83.6l-16.2,49.1a8,8,0,0,0,14.4,4.2l52.9-83A31.5,31.5,0,0,0,215.4,85.1Z" fill="currentColor" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="12"></path></svg>
           <span className="text-xl font-bold font-headline">Rebuy Tracker</span>
+          {tableId && (
+            <span className="text-xs bg-primary/20 text-primary px-2.5 py-0.5 rounded font-mono font-semibold uppercase tracking-wider">
+              Table: {tableId}
+            </span>
+          )}
         </Link>
         <div className="flex items-center gap-4">
           {isDealer && (

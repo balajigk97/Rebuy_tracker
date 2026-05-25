@@ -32,13 +32,6 @@ export function RoleSelector() {
   const router = useRouter();
   const { players } = useGame();
 
-  const predefinedPlayers = useMemo(() => {
-    const names = ["Ramki", "Mallik", "Srikanth M", "Kumar", "Nagesh", "Siva", "Tom", "Anil", "Shashank"];
-    const playerNames = new Set((players || []).map(p => p.name));
-    names.forEach(name => playerNames.add(name));
-    return Array.from(playerNames).sort();
-  }, [players]);
-
   const tablesColRef = useMemo(() => {
     if (!firestore || !user) return null;
     return collection(firestore, 'tables');
@@ -212,33 +205,7 @@ export function RoleSelector() {
             />
           </div>
 
-          <div className="space-y-2">
-              <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-white/20" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-primary-foreground/60">
-                      Or select existing
-                      </span>
-                  </div>
-              </div>
-              <Select onValueChange={(value) => setPlayerName(value)}>
-                  <SelectTrigger className="bg-background/80 text-foreground">
-                      <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <SelectValue placeholder="Select from players..." />
-                      </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <ScrollArea className="h-48">
-                      {predefinedPlayers.map((p) => (
-                          <SelectItem key={p} value={p}>{p}</SelectItem>
-                      ))}
-                    </ScrollArea>
-                  </SelectContent>
-              </Select>
-          </div>
+
 
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!playerName.trim() || !tableId}>
             Join Game

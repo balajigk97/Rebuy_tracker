@@ -22,8 +22,14 @@ export function calculateSettlement(players: Player[]): Transaction[] {
     amount: player.blackCoins - (player.rebuyTimestamps?.length ?? 0),
   }));
 
-  const debtors = balances.filter(p => p.amount < 0).map(p => ({ ...p, amount: -p.amount }));
-  const creditors = balances.filter(p => p.amount > 0);
+  const debtors = balances
+    .filter(p => p.amount < 0)
+    .map(p => ({ ...p, amount: -p.amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const creditors = balances
+    .filter(p => p.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
 
   const transactions: Transaction[] = [];
 

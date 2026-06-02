@@ -8,4 +8,5 @@ export type Player = {
   createdAt: Timestamp;
   rebuyTimestamps: Timestamp[];
   hasPendingRebuyRequest: boolean;
+  isHost: boolean;
 };

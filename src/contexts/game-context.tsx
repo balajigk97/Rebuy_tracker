@@ -46,6 +46,7 @@ export interface GameContextType {
     requestRebuy: (id: string) => Promise<void>;
     approveRebuy: (id: string) => Promise<void>;
     deleteTable: () => Promise<void>;
+    setHost: (id: string) => Promise<void>;
 }
 
 export const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -128,6 +129,7 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
                     blackCoins: 0,
                     createdAt: now,
                     hasPendingRebuyRequest: false,
+                    isHost: false,
                 };
 
                 await setDoc(playerRef, newPlayer, { merge: false });
@@ -234,6 +236,28 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
         }
     }, [players, updatePlayerDoc, toast]);
 
+    const setHost = useCallback(async (id: string) => {
+        if (!firestore || !playersColRef) return;
+        const batch = writeBatch(firestore);
+        for (const player of (players || [])) {
+            const ref = doc(playersColRef, player.id);
+            batch.update(ref, { isHost: player.id === id });
+        }
+        try {
+            await batch.commit();
+            const player = (players || []).find(p => p.id === id);
+            if (player) {
+                toast({ title: 'Host Updated', description: `${player.name} is now the host.` });
+            }
+        } catch (err) {
+            console.error('Error setting host:', err);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: playersColRef.path,
+                operation: 'update',
+            }));
+        }
+    }, [firestore, playersColRef, players, toast]);
+
     const deleteTable = useCallback(async () => {
         if (!firestore || !tableId) return;
         try {
@@ -261,6 +285,7 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
             requestRebuy,
             approveRebuy,
             deleteTable,
+            setHost,
         }),
         [
             players,
@@ -277,6 +302,7 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
             requestRebuy,
             approveRebuy,
             deleteTable,
+            setHost,
         ]
     );
 

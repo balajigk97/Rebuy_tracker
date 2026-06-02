@@ -1,6 +1,8 @@
 
 import type { Player } from './types';
 
+export const HOST_FEE = 2.5;
+
 export interface Balance {
   name: string;
   amount: number;
@@ -12,15 +14,34 @@ export interface Transaction {
   amount: number;
 }
 
-export function calculateSettlement(players: Player[]): Transaction[] {
+export interface SettlementResult {
+  transactions: Transaction[];
+  hostName: string | null;
+  hostFeePerPlayer: number;
+  totalHostFee: number;
+}
+
+export function calculateSettlement(players: Player[]): SettlementResult {
+  const empty: SettlementResult = { transactions: [], hostName: null, hostFeePerPlayer: 0, totalHostFee: 0 };
   if (!players || players.length === 0) {
-    return [];
+    return empty;
   }
 
-  const balances: Balance[] = players.map(player => ({
-    name: player.name,
-    amount: player.blackCoins - (player.rebuyTimestamps?.length ?? 0),
-  }));
+  const host = players.find(p => p.isHost);
+  const nonHostCount = host ? players.length - 1 : 0;
+  const totalHostFee = host ? nonHostCount * HOST_FEE : 0;
+
+  const balances: Balance[] = players.map(player => {
+    let amount = player.blackCoins - (player.rebuyTimestamps?.length ?? 0);
+    if (host) {
+      if (player.isHost) {
+        amount += totalHostFee;
+      } else {
+        amount -= HOST_FEE;
+      }
+    }
+    return { name: player.name, amount };
+  });
 
   const debtors = balances
     .filter(p => p.amount < 0)
@@ -33,8 +54,8 @@ export function calculateSettlement(players: Player[]): Transaction[] {
 
   const transactions: Transaction[] = [];
 
-  let i = 0; // creditor index
-  let j = 0; // debtor index
+  let i = 0;
+  let j = 0;
 
   while (i < creditors.length && j < debtors.length) {
     const creditor = creditors[i];
@@ -45,21 +66,26 @@ export function calculateSettlement(players: Player[]): Transaction[] {
       transactions.push({
         from: debtor.name,
         to: creditor.name,
-        amount: amountToSettle,
+        amount: parseFloat(amountToSettle.toFixed(2)),
       });
 
       creditor.amount -= amountToSettle;
       debtor.amount -= amountToSettle;
     }
-    
-    if (creditor.amount === 0) {
+
+    if (Math.abs(creditor.amount) < 0.001) {
       i++;
     }
 
-    if (debtor.amount === 0) {
+    if (Math.abs(debtor.amount) < 0.001) {
       j++;
     }
   }
 
-  return transactions;
+  return {
+    transactions,
+    hostName: host?.name ?? null,
+    hostFeePerPlayer: host ? HOST_FEE : 0,
+    totalHostFee,
+  };
 }

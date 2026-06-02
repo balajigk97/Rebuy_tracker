@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MinusCircle, PlusCircle, Trash2, User, Info, CheckCircle } from "lucide-react";
+import { MinusCircle, PlusCircle, Trash2, User, Info, CheckCircle, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "../ui/input";
 import { Skeleton } from "../ui/skeleton";
@@ -94,7 +94,7 @@ function isPlayer(obj: any): obj is Player {
 }
 
 export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerListProps) {
-  const { players, addRebuy, removeRebuy, deletePlayer, updateBlackCoins, isLoading, approveRebuy } = useGame();
+  const { players, addRebuy, removeRebuy, deletePlayer, updateBlackCoins, isLoading, approveRebuy, setHost } = useGame();
 
   const sortedPlayers = useMemo(() => {
     const validPlayers = Array.isArray(players) ? players.filter(isPlayer) : [];
@@ -137,6 +137,9 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                     <div className="flex items-center gap-2">
                         {player.name === highlightPlayerName && <User className="h-4 w-4 text-primary" />}
                         <span>{player.name}</span>
+                        {player.isHost && (
+                          <Crown className="h-4 w-4 text-amber-500" />
+                        )}
                         {isDealer && player.hasPendingRebuyRequest && (
                            <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400 animate-pulse">(Requesting Rebuy)</span>
                         )}
@@ -189,6 +192,25 @@ export function PlayerList({ isDealer = false, highlightPlayerName }: PlayerList
                           </Button>
                         </ConfirmationDialog>
                         
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Set ${player.name} as host`}
+                                onClick={() => setHost(player.id)}
+                                disabled={player.isHost}
+                              >
+                                <Crown className={cn("h-5 w-5", player.isHost ? "text-amber-500" : "text-muted-foreground")} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {player.isHost ? "Current host" : "Set as host"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
                         <ConfirmationDialog
                           title="Delete Player?"
                           description={`Are you sure you want to delete ${player.name}? This action cannot be undone.`}

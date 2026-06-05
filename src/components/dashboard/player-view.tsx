@@ -5,9 +5,12 @@ import { useGame } from "@/contexts/game-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlayerList } from "./player-list";
-import { Users, Clock, PlusCircle } from "lucide-react";
+import { Users, Clock, PlusCircle, DollarSign } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { ConfirmationDialog } from "../shared/confirmation-dialog";
+import { HOST_FEE } from "@/lib/settlement";
+
+const BUYIN_VALUE = 5;
 
 interface PlayerViewProps {
   playerName: string;
@@ -83,9 +86,21 @@ export function PlayerView({ playerName }: PlayerViewProps) {
           <CardTitle>Your Status</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-between">
-          <div>
-            <p className="text-sm">Total Buy-ins</p>
-            <p className="text-5xl font-bold">{totalBuyins}</p>
+          <div className="flex items-center gap-8">
+            <div>
+              <p className="text-sm">Total Buy-ins</p>
+              <p className="text-5xl font-bold">{totalBuyins}</p>
+            </div>
+            <div className="flex flex-col gap-1 text-sm opacity-90">
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-3.5 w-3.5" />
+                <span>1 Buy-in: <span className="font-semibold">${BUYIN_VALUE}</span></span>
+              </div>
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-3.5 w-3.5" />
+                <span>Host fee: <span className="font-semibold">${HOST_FEE.toFixed(2)}</span></span>
+              </div>
+            </div>
           </div>
           {player.hasPendingRebuyRequest ? (
              <Button size="lg" disabled className="bg-accent/50 text-accent-foreground">

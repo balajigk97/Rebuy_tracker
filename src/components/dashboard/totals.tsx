@@ -6,7 +6,7 @@ import { DollarSign, Banknote, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "../ui/separator";
 
-const BUYIN_VALUE = 20; // Assuming each buy-in is $20
+const BUYIN_VALUE = 5;
 
 export function Totals() {
     const { players } = useGame();

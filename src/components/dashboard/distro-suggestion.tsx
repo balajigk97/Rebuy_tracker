@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowRight, Shuffle, User, Crown } from 'lucide-react';
-import { calculateSettlement, HOST_FEE, type Transaction } from '@/lib/settlement';
+import { calculateSettlement, HOST_FEE, BUYIN_VALUE, type Transaction } from '@/lib/settlement';
 import type { Player } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
@@ -25,7 +25,7 @@ function PlayerBalances({ players }: { players: Player[] }) {
     const balances = useMemo(() => {
         const validPlayers = Array.isArray(players) ? players.filter(isPlayer) : [];
         return validPlayers.map(p => {
-            let balance = p.blackCoins - (p.rebuyTimestamps?.length ?? 0);
+            let balance = (p.blackCoins - (p.rebuyTimestamps?.length ?? 0)) * BUYIN_VALUE;
             if (host) {
                 if (p.isHost) {
                     balance += totalHostFee;
@@ -44,7 +44,7 @@ function PlayerBalances({ players }: { players: Player[] }) {
 
     return (
         <div className="space-y-2">
-             <h4 className="text-sm font-medium text-muted-foreground">Final Counts (incl. host fee)</h4>
+             <h4 className="text-sm font-medium text-muted-foreground">Final Balances (incl. host fee)</h4>
             <ul className="space-y-2">
                 {balances.map(p => (
                     <li key={p.id} className="flex items-center justify-between text-sm">
@@ -57,7 +57,7 @@ function PlayerBalances({ players }: { players: Player[] }) {
                             p.balance > 0 && "text-green-600",
                             p.balance < 0 && "text-destructive",
                         )}>
-                            {p.balance > 0 && "+"}{p.balance}
+                            {p.balance > 0 ? "+$" : p.balance < 0 ? "-$" : "$"}{Math.abs(p.balance).toFixed(2)}
                         </span>
                     </li>
                 ))}

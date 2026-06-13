@@ -2,6 +2,7 @@
 import type { Player } from './types';
 
 export const HOST_FEE = 2.5;
+export const BUYIN_VALUE = 5;
 
 export interface Balance {
   name: string;
@@ -32,7 +33,7 @@ export function calculateSettlement(players: Player[]): SettlementResult {
   const totalHostFee = host ? nonHostCount * HOST_FEE : 0;
 
   const balances: Balance[] = players.map(player => {
-    let amount = player.blackCoins - (player.rebuyTimestamps?.length ?? 0);
+    let amount = (player.blackCoins - (player.rebuyTimestamps?.length ?? 0)) * BUYIN_VALUE;
     if (host) {
       if (player.isHost) {
         amount += totalHostFee;

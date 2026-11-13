@@ -1,0 +1,17 @@
+export const KNOWN_PLAYERS = [
+  'Anil',
+  'Balaji',
+  'Madhu',
+  'Raghu',
+  'Koti',
+  'Sudheer',
+  'Umesh',
+  'Karthik',
+  'Pruthvi',
+  'Sricharan',
+  'Shankar',
+  'Prasad',
+  'Sagar',
+  'Sravan',
+  'Siva',
+] as const;

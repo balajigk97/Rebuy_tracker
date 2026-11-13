@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlayerNameInput } from "@/components/ui/player-name-input";
 import { User, UserCog, History, Users, Layers } from "lucide-react";
 import {
   Select,
@@ -135,7 +136,7 @@ export function RoleSelector() {
               <SelectContent>
                 {activeTables.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    Table: {t.id}
+                    {(t as any).displayName ? `${(t as any).displayName} (${t.id})` : `Table: ${t.id}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -195,12 +196,11 @@ export function RoleSelector() {
 
           <div className="space-y-2">
             <Label htmlFor="name" className="text-primary-foreground">Player Name</Label>
-            <Input
+            <PlayerNameInput
               id="name"
               placeholder="Enter your name to join"
               value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              required
+              onChange={setPlayerName}
               className="bg-background/80 text-foreground"
             />
           </div>

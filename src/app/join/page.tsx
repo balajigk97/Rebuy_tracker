@@ -7,7 +7,7 @@ import { useFirebase, initiateAnonymousSignIn } from '@/firebase';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PlayerNameInput } from '@/components/ui/player-name-input';
 import { Label } from '@/components/ui/label';
 import { User } from 'lucide-react';
 
@@ -128,12 +128,11 @@ function JoinPageContent() {
               <form onSubmit={handleJoin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name" className="text-primary-foreground">Player Name</Label>
-                  <Input
+                  <PlayerNameInput
                     id="name"
                     placeholder="Enter your name"
                     value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                    required
+                    onChange={setPlayerName}
                     className="bg-background/80 text-foreground"
                     autoFocus
                   />

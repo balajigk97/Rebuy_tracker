@@ -10,3 +10,28 @@ export type Player = {
   hasPendingRebuyRequest: boolean;
   isHost: boolean;
 };
+
+export type Table = {
+  id: string;
+  displayName?: string;
+  pin?: string;
+  lastActive: Timestamp;
+};
+
+export type SettlementSnapshot = {
+  id: string;
+  settledAt: Timestamp;
+  players: {
+    name: string;
+    buyIns: number;
+    blackCoins: number;
+    balance: number;
+    isHost: boolean;
+  }[];
+  transactions: {
+    from: string;
+    to: string;
+    amount: number;
+  }[];
+  totalPot: number;
+};

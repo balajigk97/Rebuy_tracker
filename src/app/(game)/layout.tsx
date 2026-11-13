@@ -1,10 +1,11 @@
 'use client';
 
 import { AppHeader } from '@/components/dashboard/app-header';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useUser } from '@/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GameProvider } from '@/contexts/game-context';
+import { useGame } from '@/contexts/game-context';
 
 function GameLayoutContent({
   children,
@@ -14,16 +15,28 @@ function GameLayoutContent({
   tableId?: string;
 }) {
   const { user, isUserLoading } = useUser();
+  const { isReady } = useGame();
   const router = useRouter();
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Wait for Firebase auth to load
   useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.replace('/'); // Redirect if not logged in
+    if (redirectTimer.current) {
+      clearTimeout(redirectTimer.current);
+      redirectTimer.current = null;
     }
-  }, [user, isUserLoading, router]);
 
-  if (isUserLoading) {
+    if (!isUserLoading && !user && !isReady) {
+      redirectTimer.current = setTimeout(() => {
+        if (!user) router.replace('/');
+      }, 3000);
+    }
+
+    return () => {
+      if (redirectTimer.current) clearTimeout(redirectTimer.current);
+    };
+  }, [user, isUserLoading, isReady, router]);
+
+  if (isUserLoading || (!user && !isReady)) {
     return (
       <div className="flex-1 flex items-center justify-center text-center py-10">
         <div>
@@ -36,7 +49,6 @@ function GameLayoutContent({
     );
   }
 
-  // Prevent flash of wrong page before redirect
   if (!user) {
     return null;
   }

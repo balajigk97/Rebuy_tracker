@@ -15,15 +15,25 @@ export interface Transaction {
   amount: number;
 }
 
+export interface PlayerBreakdown {
+  name: string;
+  buyIns: number;
+  blackCoins: number;
+  delta: number;
+  balance: number;
+  isHost: boolean;
+}
+
 export interface SettlementResult {
   transactions: Transaction[];
   hostName: string | null;
   hostFeePerPlayer: number;
   totalHostFee: number;
+  playerBreakdowns: PlayerBreakdown[];
 }
 
 export function calculateSettlement(players: Player[]): SettlementResult {
-  const empty: SettlementResult = { transactions: [], hostName: null, hostFeePerPlayer: 0, totalHostFee: 0 };
+  const empty: SettlementResult = { transactions: [], hostName: null, hostFeePerPlayer: 0, totalHostFee: 0, playerBreakdowns: [] };
   if (!players || players.length === 0) {
     return empty;
   }
@@ -31,6 +41,21 @@ export function calculateSettlement(players: Player[]): SettlementResult {
   const host = players.find(p => p.isHost);
   const nonHostCount = host ? players.length - 1 : 0;
   const totalHostFee = host ? nonHostCount * HOST_FEE : 0;
+
+  const playerBreakdowns: PlayerBreakdown[] = players.map(player => {
+    const buyIns = player.rebuyTimestamps?.length ?? 0;
+    const blackCoins = player.blackCoins;
+    const delta = blackCoins - buyIns;
+    let balance = delta * BUYIN_VALUE;
+    if (host) {
+      if (player.isHost) {
+        balance += totalHostFee;
+      } else {
+        balance -= HOST_FEE;
+      }
+    }
+    return { name: player.name, buyIns, blackCoins, delta, balance: parseFloat(balance.toFixed(2)), isHost: player.isHost };
+  });
 
   const balances: Balance[] = players.map(player => {
     let amount = (player.blackCoins - (player.rebuyTimestamps?.length ?? 0)) * BUYIN_VALUE;
@@ -88,5 +113,6 @@ export function calculateSettlement(players: Player[]): SettlementResult {
     hostName: host?.name ?? null,
     hostFeePerPlayer: host ? HOST_FEE : 0,
     totalHostFee,
+    playerBreakdowns,
   };
 }

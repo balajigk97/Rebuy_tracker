@@ -5,14 +5,20 @@ import { DealerView } from '@/components/dashboard/dealer-view';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useGame } from '@/contexts/game-context';
 
-const DEALER_PASSWORD = 'test1234';
+function useDealerPassword() {
+  const { tableInfo } = useGame();
+  const envPassword = process.env.NEXT_PUBLIC_DEALER_PASSWORD;
+  return tableInfo?.pin || envPassword || 'test1234';
+}
 
 export default function DealerPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const dealerPassword = useDealerPassword();
 
   useEffect(() => {
     setIsClient(true);
@@ -26,9 +32,15 @@ export default function DealerPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [isAuthenticated]);
+
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === DEALER_PASSWORD) {
+    if (password === dealerPassword) {
       setError('');
       try {
         sessionStorage.setItem('dealerAuthenticated', 'true');
@@ -43,7 +55,7 @@ export default function DealerPage() {
   };
 
   if (!isClient) {
-    return null; // Render nothing on the server
+    return null;
   }
 
   if (!isAuthenticated) {

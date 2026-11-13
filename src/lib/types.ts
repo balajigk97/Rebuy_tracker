@@ -16,6 +16,9 @@ export type Table = {
   displayName?: string;
   pin?: string;
   lastActive: Timestamp;
+  isSettled?: boolean;
+  settledAt?: Timestamp;
+  expireAt?: Timestamp;
 };
 
 export type PlayerStats = {

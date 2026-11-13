@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useFirebase, initiateAnonymousSignIn } from '@/firebase';
+import { collection, query, where, getDocs, writeBatch, Timestamp } from 'firebase/firestore';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ function HomePageContent() {
   const { auth, firestore, user, isUserLoading } = useFirebase();
   const bgImage = PlaceHolderImages.find((img) => img.id === 'login-bg');
   const didInitAuth = useRef(false);
+  const didCleanup = useRef(false);
 
   useEffect(() => {
     if (didInitAuth.current) return;
@@ -23,6 +25,30 @@ function HomePageContent() {
       initiateAnonymousSignIn(auth);
     }
   }, [auth, firestore, user, isUserLoading]);
+
+  useEffect(() => {
+    if (!firestore || !user || didCleanup.current) return;
+    didCleanup.current = true;
+    const cleanupExpired = async () => {
+      try {
+        const now = Timestamp.now();
+        const q = query(collection(firestore, 'tables'), where('expireAt', '<=', now));
+        const snapshot = await getDocs(q);
+        for (const tableDoc of snapshot.docs) {
+          const batch = writeBatch(firestore);
+          const playersSnap = await getDocs(collection(tableDoc.ref, 'players'));
+          playersSnap.docs.forEach(d => batch.delete(d.ref));
+          const settlementsSnap = await getDocs(collection(tableDoc.ref, 'settlements'));
+          settlementsSnap.docs.forEach(d => batch.delete(d.ref));
+          batch.delete(tableDoc.ref);
+          await batch.commit();
+        }
+      } catch (err) {
+        console.error('Expired game cleanup failed:', err);
+      }
+    };
+    cleanupExpired();
+  }, [firestore, user]);
 
   if (isUserLoading || !user) {
     return (

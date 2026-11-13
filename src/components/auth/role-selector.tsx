@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlayerNameInput } from "@/components/ui/player-name-input";
-import { User, UserCog, History, Users, Layers } from "lucide-react";
+import { User, UserCog, History, Users, Layers, ShieldX } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -38,7 +38,7 @@ export function RoleSelector() {
     return collection(firestore, 'tables');
   }, [firestore, user]);
 
-  const { data: tables = [], isLoading: isTablesLoading } = useCollection<{ id: string; lastActive?: any }>(tablesColRef);
+  const { data: tables = [], isLoading: isTablesLoading } = useCollection<{ id: string; lastActive?: any; isSettled?: boolean; displayName?: string }>(tablesColRef);
 
   const activeTables = useMemo(() => {
     const list = tables || [];
@@ -48,6 +48,11 @@ export function RoleSelector() {
       return bTime - aTime;
     });
   }, [tables]);
+
+  const selectedTableSettled = useMemo(() => {
+    const t = activeTables.find(t => t.id === tableId);
+    return t?.isSettled ?? false;
+  }, [activeTables, tableId]);
 
   // Set the first active table as default if available
   useEffect(() => {
@@ -136,7 +141,8 @@ export function RoleSelector() {
               <SelectContent>
                 {activeTables.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {(t as any).displayName ? `${(t as any).displayName} (${t.id})` : `Table: ${t.id}`}
+                    {t.displayName ? `${t.displayName} (${t.id})` : `Table: ${t.id}`}
+                    {t.isSettled ? ' - Settled' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -176,21 +182,30 @@ export function RoleSelector() {
                 <p className="text-xs text-destructive font-semibold">No active tables found. Ask the dealer to create one.</p>
               </div>
             ) : (
-              <Select onValueChange={(val) => setTableId(val)} value={tableId}>
-                <SelectTrigger className="bg-background/80 text-foreground">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Select an active table..." />
+              <>
+                <Select onValueChange={(val) => setTableId(val)} value={tableId}>
+                  <SelectTrigger className="bg-background/80 text-foreground">
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue placeholder="Select an active table..." />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeTables.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.displayName ? `${t.displayName} (${t.id})` : `Table: ${t.id}`}
+                        {t.isSettled ? ' - Settled' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedTableSettled && (
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-destructive/15 border border-destructive/30">
+                    <ShieldX className="h-4 w-4 text-destructive shrink-0" />
+                    <p className="text-xs text-destructive font-medium">This game has been settled. Only existing players can view results.</p>
                   </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {activeTables.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      Table: {t.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                )}
+              </>
             )}
           </div>
 

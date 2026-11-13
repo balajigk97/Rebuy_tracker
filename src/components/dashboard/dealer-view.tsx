@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlayerList } from "./player-list";
 import { PlayerNameInput } from "@/components/ui/player-name-input";
-import { Users, Trash, XCircle, Link, Check, Settings, Save, History, Trophy } from "lucide-react";
+import { Users, Trash, XCircle, Link, Check, Settings, Save, History, Trophy, Lock, Unlock } from "lucide-react";
 import { ConfirmationDialog } from "../shared/confirmation-dialog";
 import { DistroSuggestion } from "./distro-suggestion";
 import { useToast } from "@/hooks/use-toast";
@@ -97,6 +97,41 @@ function TableSettings() {
                 </div>
                 <Button size="sm" className="w-full" onClick={handleSave}>
                     {saved ? <><Check className="h-4 w-4 mr-1" /> Saved</> : <><Save className="h-4 w-4 mr-1" /> Save Settings</>}
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+function GameLockToggle() {
+    const { tableInfo, setTableLocked } = useGame();
+    const isLocked = tableInfo?.isSettled ?? false;
+
+    return (
+        <Card className={isLocked ? "border-amber-500/50" : ""}>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    {isLocked ? <Lock className="h-5 w-5 text-amber-500" /> : <Unlock className="h-5 w-5" />}
+                    Game Access
+                </CardTitle>
+                <CardDescription>
+                    {isLocked
+                        ? "Game is locked. No new players can join. Data expires in 30 days."
+                        : "Game is open. New players can join freely."}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button
+                    size="sm"
+                    className="w-full"
+                    variant={isLocked ? "outline" : "destructive"}
+                    onClick={() => setTableLocked(!isLocked)}
+                >
+                    {isLocked ? (
+                        <><Unlock className="h-4 w-4 mr-1" /> Unlock Game</>
+                    ) : (
+                        <><Lock className="h-4 w-4 mr-1" /> Lock Game</>
+                    )}
                 </Button>
             </CardContent>
         </Card>
@@ -276,6 +311,7 @@ export function DealerView() {
           <Totals />
           <Suspense><ShareJoinLink /></Suspense>
           <TableSettings />
+          <GameLockToggle />
           <ResetGame />
           <CloseTable />
         </div>

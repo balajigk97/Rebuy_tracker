@@ -19,6 +19,8 @@ import {
     updateDoc,
     deleteDoc,
     increment,
+    orderBy,
+    where,
     CollectionReference,
     getDoc,
     getDocs,
@@ -53,6 +55,7 @@ export interface GameContextType {
     saveSettlement: () => Promise<void>;
     updateTableInfo: (data: Partial<Pick<Table, 'displayName' | 'pin'>>) => Promise<void>;
     loadSettlements: () => Promise<void>;
+    setTableLocked: (locked: boolean) => Promise<void>;
 }
 
 export const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -98,25 +101,29 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
     }, [firestore, tableId, user]);
 
     const [settlements, setSettlements] = React.useState<SettlementSnapshot[]>([]);
-
-    const getStorageKey = useCallback(() => tableId ? `settlements_${tableId}` : null, [tableId]);
+    const tableInfoRef = useRef<Table | null>(null);
 
     const loadSettlements = useCallback(async () => {
-        const key = getStorageKey();
-        if (!key || settlementsLoadedRef.current) return;
+        if (!firestore || !tableId || !user || settlementsLoadedRef.current) return;
         try {
-            const raw = localStorage.getItem(key);
-            if (raw) {
-                const data = JSON.parse(raw) as SettlementSnapshot[];
-                data.sort((a, b) => (b.settledAt as any) - (a.settledAt as any));
-                setSettlements(data);
-            }
+            const settlementsRef = collection(firestore, 'tables', tableId, 'settlements');
+            const q = query(settlementsRef, orderBy('settledAt', 'desc'));
+            const snapshot = await getDocs(q);
+            const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as SettlementSnapshot[];
+            setSettlements(data);
             settlementsLoadedRef.current = true;
-        } catch {}
-    }, [getStorageKey]);
+        } catch (err) {
+            console.error('Error loading settlements:', err);
+        }
+    }, [firestore, tableId, user]);
 
     const [tableInfo, setTableInfo] = React.useState<Table | null>(null);
     const tableInfoFetched = useRef(false);
+
+    useEffect(() => {
+        tableInfoRef.current = tableInfo;
+    }, [tableInfo]);
+
     useEffect(() => {
         if (!firestore || !tableId || !user || tableInfoFetched.current) return;
         tableInfoFetched.current = true;
@@ -183,6 +190,11 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
     const createPlayer = useCallback(
         async (name: string) => {
             if (!firestore || !playersColRef || !name) return;
+
+            if (tableInfoRef.current?.isSettled) {
+                toast({ title: 'Game Settled', description: 'This game has been settled. New players cannot join.', variant: 'destructive' });
+                return;
+            }
 
             const normalized = normalizeName(name);
 
@@ -273,12 +285,21 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
             const snapshot = await getDocs(query(playersColRef));
             snapshot.docs.forEach(pDoc => batch.delete(pDoc.ref));
             await batch.commit();
+
+            if (tableId) {
+                try {
+                    const tableRef = doc(firestore, 'tables', tableId);
+                    await updateDoc(tableRef, { isSettled: false });
+                    setTableInfo(prev => prev ? { ...prev, isSettled: false } : prev);
+                } catch {}
+            }
+
             toast({ title: 'Game Reset', description: 'All players have been removed. Stats saved to Hall of Fame.', variant: 'destructive' });
         } catch (err) {
             console.error('Error deleting all players:', err);
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: playersColRef.path, operation: 'list' }));
         }
-    }, [firestore, playersColRef, toast, savePlayerStats]);
+    }, [firestore, playersColRef, tableId, toast, savePlayerStats]);
 
     const updatePlayerDoc = useCallback(async (id: string, updateData: any, operationName: string) => {
         if (!firestore || !playersColRef) return;
@@ -358,14 +379,17 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
 
     const saveSettlement = useCallback(async () => {
         const currentPlayers = playersRef.current;
-        const key = getStorageKey();
-        if (!key || !currentPlayers || currentPlayers.length === 0) return;
+        if (!firestore || !tableId || !currentPlayers || currentPlayers.length === 0) return;
         try {
             const result = calculateSettlement(currentPlayers);
             const totalBuyIns = currentPlayers.reduce((t, p) => t + (p.rebuyTimestamps?.length ?? 0), 0);
-            const snapshot: SettlementSnapshot = {
-                id: Date.now().toString(),
-                settledAt: Date.now() as any,
+            const now = Timestamp.now();
+            const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+            const expireAt = Timestamp.fromMillis(now.toMillis() + thirtyDays);
+
+            const snapshotData = {
+                settledAt: now,
+                expireAt,
                 players: currentPlayers.map(p => ({
                     name: p.name,
                     buyIns: p.rebuyTimestamps?.length ?? 0,
@@ -373,18 +397,29 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
                     balance: parseFloat(((p.blackCoins - (p.rebuyTimestamps?.length ?? 0)) * BUYIN_VALUE).toFixed(2)),
                     isHost: p.isHost,
                 })),
-                transactions: result.transactions,
+                transactions: result.transactions.map(tx => ({
+                    from: tx.from,
+                    to: tx.to,
+                    amount: tx.amount,
+                })),
                 totalPot: totalBuyIns * BUYIN_VALUE,
             };
-            const existing = JSON.parse(localStorage.getItem(key) || '[]');
-            existing.unshift(snapshot);
-            localStorage.setItem(key, JSON.stringify(existing.slice(0, 20)));
-            setSettlements(existing.slice(0, 20));
-            toast({ title: 'Settlement Saved', description: 'A snapshot of the current settlement has been saved.' });
+
+            const settlementRef = doc(collection(firestore, 'tables', tableId, 'settlements'));
+            await setDoc(settlementRef, snapshotData);
+
+            const tableRef = doc(firestore, 'tables', tableId);
+            await updateDoc(tableRef, { isSettled: true, settledAt: now, expireAt });
+            setTableInfo(prev => prev ? { ...prev, isSettled: true, settledAt: now, expireAt } : prev);
+
+            const newSnapshot: SettlementSnapshot = { id: settlementRef.id, ...snapshotData };
+            setSettlements(prev => [newSnapshot, ...prev].slice(0, 20));
+
+            toast({ title: 'Game Settled', description: 'Settlement saved. Players can view results for 30 days. New players are locked out.' });
         } catch (err) {
             console.error('Error saving settlement:', err);
         }
-    }, [getStorageKey, toast]);
+    }, [firestore, tableId, toast]);
 
     const updateTableInfo = useCallback(async (data: Partial<Pick<Table, 'displayName' | 'pin'>>) => {
         if (!firestore || !tableId) return;
@@ -395,6 +430,27 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
             toast({ title: 'Table Updated', description: 'Table settings have been updated.' });
         } catch (err) {
             console.error('Error updating table info:', err);
+        }
+    }, [firestore, tableId, toast]);
+
+    const setTableLocked = useCallback(async (locked: boolean) => {
+        if (!firestore || !tableId) return;
+        try {
+            const tableRef = doc(firestore, 'tables', tableId);
+            const now = Timestamp.now();
+            const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+            const expireAt = Timestamp.fromMillis(now.toMillis() + thirtyDays);
+            if (locked) {
+                await updateDoc(tableRef, { isSettled: true, settledAt: now, expireAt });
+                setTableInfo(prev => prev ? { ...prev, isSettled: true, settledAt: now, expireAt } : prev);
+                toast({ title: 'Game Locked', description: 'New players can no longer join this game.' });
+            } else {
+                await updateDoc(tableRef, { isSettled: false });
+                setTableInfo(prev => prev ? { ...prev, isSettled: false } : prev);
+                toast({ title: 'Game Unlocked', description: 'New players can now join this game.' });
+            }
+        } catch (err) {
+            console.error('Error updating table lock:', err);
         }
     }, [firestore, tableId, toast]);
 
@@ -410,7 +466,7 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
         } catch (err) {
             console.error("Error closing table:", err);
         }
-    }, [firestore, tableId, deleteAllPlayers, saveSettlement, toast, getStorageKey]);
+    }, [firestore, tableId, deleteAllPlayers, saveSettlement, toast]);
 
     const value = useMemo<GameContextType>(
         () => ({
@@ -432,6 +488,7 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
             saveSettlement,
             updateTableInfo,
             loadSettlements,
+            setTableLocked,
         }),
         [
             players,
@@ -454,6 +511,7 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
             saveSettlement,
             updateTableInfo,
             loadSettlements,
+            setTableLocked,
         ]
     );
 

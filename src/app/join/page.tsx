@@ -4,12 +4,13 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useFirebase, initiateAnonymousSignIn } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlayerNameInput } from '@/components/ui/player-name-input';
 import { Label } from '@/components/ui/label';
-import { User } from 'lucide-react';
+import { User, ShieldX } from 'lucide-react';
 
 const PLAYER_NAME_KEY = 'poker_player_name';
 
@@ -23,6 +24,8 @@ function JoinPageContent() {
 
   const [playerName, setPlayerName] = useState('');
   const [savedPlayerName, setSavedPlayerName] = useState<string | null>(null);
+  const [isSettled, setIsSettled] = useState(false);
+  const [tableChecked, setTableChecked] = useState(false);
 
   useEffect(() => {
     if (didInitAuth.current) return;
@@ -31,6 +34,20 @@ function JoinPageContent() {
       initiateAnonymousSignIn(auth);
     }
   }, [auth, firestore, user, isUserLoading]);
+
+  useEffect(() => {
+    if (!firestore || !user || !tableId) return;
+    const checkTable = async () => {
+      try {
+        const snap = await getDoc(doc(firestore, 'tables', tableId));
+        if (snap.exists() && snap.data()?.isSettled) {
+          setIsSettled(true);
+        }
+      } catch {}
+      setTableChecked(true);
+    };
+    checkTable();
+  }, [firestore, user, tableId]);
 
   useEffect(() => {
     try {
@@ -69,6 +86,26 @@ function JoinPageContent() {
           <h1 className="text-2xl font-bold">Connecting...</h1>
           <p>Initializing your session...</p>
         </div>
+      </main>
+    );
+  }
+
+  if (tableChecked && isSettled) {
+    return (
+      <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-4">
+        {bgImage && (
+          <Image src={bgImage.imageUrl} alt={bgImage.description} fill priority className="object-cover -z-10 brightness-[.25]" />
+        )}
+        <Card className="bg-card/80 backdrop-blur-sm border-white/20 w-full max-w-md">
+          <CardHeader className="text-center">
+            <ShieldX className="h-12 w-12 mx-auto text-destructive opacity-60 mb-2" />
+            <CardTitle>Game Has Ended</CardTitle>
+            <CardDescription>This game has been settled. New players cannot join. Only existing players can view settlement results.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => router.push('/')} className="w-full">Go to Home</Button>
+          </CardContent>
+        </Card>
       </main>
     );
   }

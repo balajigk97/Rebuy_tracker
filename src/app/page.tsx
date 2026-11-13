@@ -2,11 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useFirebase, initiateAnonymousSignIn } from '@/firebase';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { RoleSelector } from '@/components/auth/role-selector';
 import { GameProvider } from '@/contexts/game-context';
+import { Trophy } from 'lucide-react';
 
 function HomePageContent() {
   const { auth, firestore, user, isUserLoading } = useFirebase();
@@ -69,6 +72,15 @@ function HomePageContent() {
             <RoleSelector />
           </CardContent>
         </Card>
+
+        <div className="text-center">
+          <Button variant="ghost" asChild className="text-primary-foreground/70 hover:text-primary-foreground">
+            <Link href="/stats">
+              <Trophy className="h-4 w-4 mr-2" />
+              Hall of Fame
+            </Link>
+          </Button>
+        </div>
       </div>
     </main>
   );

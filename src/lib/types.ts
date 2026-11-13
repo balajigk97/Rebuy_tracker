@@ -18,6 +18,15 @@ export type Table = {
   lastActive: Timestamp;
 };
 
+export type PlayerStats = {
+  id: string;
+  name: string;
+  gamesPlayed: number;
+  totalBuyIns: number;
+  totalProfit: number;
+  lastPlayed: Timestamp;
+};
+
 export type SettlementSnapshot = {
   id: string;
   settledAt: Timestamp;

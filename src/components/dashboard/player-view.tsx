@@ -1,14 +1,16 @@
 
 'use client';
 
+import { useMemo } from "react";
 import { useGame } from "@/contexts/game-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlayerList } from "./player-list";
-import { Users, Clock, PlusCircle, DollarSign, Coins } from "lucide-react";
+import { DistroSuggestion } from "./distro-suggestion";
+import { Users, Clock, PlusCircle, DollarSign, Coins, ArrowRight } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { ConfirmationDialog } from "../shared/confirmation-dialog";
-import { HOST_FEE, BUYIN_VALUE } from "@/lib/settlement";
+import { calculateSettlement, HOST_FEE, BUYIN_VALUE } from "@/lib/settlement";
 import { cn } from "@/lib/utils";
 
 interface PlayerViewProps {
@@ -75,6 +77,13 @@ export function PlayerView({ playerName }: PlayerViewProps) {
   const netChips = blackCoins - totalBuyins;
   const netDollars = netChips * BUYIN_VALUE;
 
+  const settlement = useMemo(() => calculateSettlement(players), [players]);
+  const myDebts = settlement.transactions.filter(tx => tx.from === playerName);
+  const myCredits = settlement.transactions.filter(tx => tx.to === playerName);
+  const totalBuyInsAll = players.reduce((t, p) => t + (p.rebuyTimestamps?.length ?? 0), 0);
+  const totalBlackCoinsAll = players.reduce((t, p) => t + (p.blackCoins ?? 0), 0);
+  const isBalanced = Math.abs(totalBuyInsAll - totalBlackCoinsAll) < 0.01 && totalBuyInsAll > 0;
+
   const handleRebuyRequest = () => {
     requestRebuy(player.id);
   }
@@ -138,6 +147,40 @@ export function PlayerView({ playerName }: PlayerViewProps) {
         </CardContent>
       </Card>
 
+      {isBalanced && (myDebts.length > 0 || myCredits.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><DollarSign /> Your Payouts</CardTitle>
+            <CardDescription>Your settlement actions for this game.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {myDebts.map((tx, i) => (
+              <div key={`debt-${i}`} className="flex items-center justify-between p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <span className="text-sm font-medium">You pay <span className="font-bold">{tx.to}</span></span>
+                <span className="font-bold text-destructive text-lg">${tx.amount.toFixed(2)}</span>
+              </div>
+            ))}
+            {myCredits.map((tx, i) => (
+              <div key={`credit-${i}`} className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                <span className="text-sm font-medium"><span className="font-bold">{tx.from}</span> pays you</span>
+                <span className="font-bold text-green-600 text-lg">${tx.amount.toFixed(2)}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {isBalanced && myDebts.length === 0 && myCredits.length === 0 && settlement.transactions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><DollarSign /> Your Payouts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground text-center py-2">You are fully settled. No payments needed!</p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Users /> Table Standings</CardTitle>
@@ -147,6 +190,8 @@ export function PlayerView({ playerName }: PlayerViewProps) {
           <PlayerList highlightPlayerName={playerName} />
         </CardContent>
       </Card>
+
+      <DistroSuggestion players={players} />
     </div>
   );
 }

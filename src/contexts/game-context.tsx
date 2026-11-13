@@ -18,6 +18,7 @@ import {
     setDoc,
     updateDoc,
     deleteDoc,
+    increment,
     CollectionReference,
     getDoc,
     getDocs,
@@ -237,23 +238,47 @@ export function GameProvider({ children, tableId }: GameProviderProps) {
         [firestore, playersColRef, toast]
     );
 
+    const savePlayerStats = useCallback(async (currentPlayers: Player[]) => {
+        if (!firestore || currentPlayers.length === 0) return;
+        try {
+            const batch = writeBatch(firestore);
+            for (const player of currentPlayers) {
+                const buyIns = player.rebuyTimestamps?.length ?? 0;
+                const profit = parseFloat(((player.blackCoins - buyIns) * BUYIN_VALUE).toFixed(2));
+                const statsRef = doc(firestore, 'playerStats', player.name.toLowerCase());
+                batch.set(statsRef, {
+                    name: player.name,
+                    gamesPlayed: increment(1),
+                    totalBuyIns: increment(buyIns),
+                    totalProfit: increment(profit),
+                    lastPlayed: Timestamp.now(),
+                }, { merge: true });
+            }
+            await batch.commit();
+        } catch (err) {
+            console.error('Error saving player stats:', err);
+        }
+    }, [firestore]);
+
     const deleteAllPlayers = useCallback(async () => {
         if (!firestore || !playersColRef) return;
         try {
-            const batch = writeBatch(firestore);
-            const snapshot = await getDocs(query(playersColRef));
-            if (snapshot.empty) {
+            const currentPlayers = playersRef.current;
+            if (currentPlayers.length === 0) {
                 toast({ title: 'No Players to Remove', description: 'The game is already empty.' });
                 return;
             }
+            await savePlayerStats(currentPlayers);
+            const batch = writeBatch(firestore);
+            const snapshot = await getDocs(query(playersColRef));
             snapshot.docs.forEach(pDoc => batch.delete(pDoc.ref));
             await batch.commit();
-            toast({ title: 'Game Reset', description: 'All players have been removed from the game.', variant: 'destructive' });
+            toast({ title: 'Game Reset', description: 'All players have been removed. Stats saved to Hall of Fame.', variant: 'destructive' });
         } catch (err) {
             console.error('Error deleting all players:', err);
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: playersColRef.path, operation: 'list' }));
         }
-    }, [firestore, playersColRef, toast]);
+    }, [firestore, playersColRef, toast, savePlayerStats]);
 
     const updatePlayerDoc = useCallback(async (id: string, updateData: any, operationName: string) => {
         if (!firestore || !playersColRef) return;

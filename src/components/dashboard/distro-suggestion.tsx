@@ -103,12 +103,35 @@ export function DistroSuggestion({ players }: DistroSuggestionProps) {
     if (!cardRef.current) return;
     setIsSaving(true);
     try {
+      const el = cardRef.current;
+      const isDark = document.documentElement.classList.contains('dark');
+      const bgColor = isDark ? '#0c1e1e' : '#ffffff';
+
+      el.style.setProperty('--capture-mode', '1');
+      const animated = el.querySelectorAll<HTMLElement>('[class*="animate"]');
+      animated.forEach(node => {
+        node.style.animation = 'none';
+        node.style.opacity = '1';
+        node.style.transform = 'none';
+      });
+
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
       const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: '#ffffff',
+      const canvas = await html2canvas(el, {
+        backgroundColor: bgColor,
         scale: 2,
         useCORS: true,
+        scrollY: -window.scrollY,
+        windowHeight: el.scrollHeight,
       });
+
+      animated.forEach(node => {
+        node.style.animation = '';
+        node.style.opacity = '';
+        node.style.transform = '';
+      });
+      el.style.removeProperty('--capture-mode');
 
       const canShareFiles = typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
 

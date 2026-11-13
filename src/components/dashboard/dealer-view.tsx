@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlayerList } from "./player-list";
 import { PlayerNameInput } from "@/components/ui/player-name-input";
-import { Users, Trash, XCircle, Link, Check, Settings, Save, History } from "lucide-react";
+import { Users, Trash, XCircle, Link, Check, Settings, Save, History, Trophy } from "lucide-react";
 import { ConfirmationDialog } from "../shared/confirmation-dialog";
 import { DistroSuggestion } from "./distro-suggestion";
 import { useToast } from "@/hooks/use-toast";
 import { Totals } from "./totals";
 import { useRouter, useSearchParams } from "next/navigation";
+import NextLink from "next/link";
 import { BUYIN_VALUE } from "@/lib/settlement";
 import { format } from "date-fns";
 
@@ -293,6 +294,11 @@ export function DealerView() {
             <div className="space-y-4">
                 <DistroSuggestion players={players} />
                 <SaveSettlementButton />
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <NextLink href="/stats">
+                    <Trophy className="h-4 w-4 mr-1" /> Hall of Fame
+                  </NextLink>
+                </Button>
                 <SettlementHistory />
             </div>
         </div>
